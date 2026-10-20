@@ -1,0 +1,15 @@
+name: Build
+on:
+  push:
+  pull_request:
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build
+        run: xcodebuild -project MMail.xcodeproj -scheme MMail -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build

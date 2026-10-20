@@ -99,6 +99,39 @@ xcodebuild -project MMail.xcodeproj -scheme MMail -configuration Debug build
 On first launch you'll see a welcome screen — choose **Set up IMAP manually** and enter
 your IMAP/SMTP host, port, username, and password.
 
+## Claude integration (MCP)
+
+MMail embeds a [Model Context Protocol](https://modelcontextprotocol.io) server so Claude can drive
+your mail: list, search and read messages, open attachments (text, images, any file), triage
+(archive, done, delete, spam, snooze, labels, move), and write: open a composer on screen, edit it,
+attach files, save a draft or send. Everything goes through the running app, so you see each action
+(with Undo) and the same IMAP/SMTP connections are reused. Nothing is sent without your explicit ask.
+
+How it works: the app listens on a private Unix socket
+(`~/Library/Application Support/MMail/agent.sock`, user-only). `MMail --mcp` is a tiny stdio bridge to
+that socket, starting MMail in the background if it isn't running.
+
+```bash
+# Claude Code
+claude mcp add mmail -- /Applications/MMail.app/Contents/MacOS/MMail --mcp
+```
+
+Claude Desktop (`claude_desktop_config.json`):
+
+```json
+{ "mcpServers": { "mmail": { "command": "/Applications/MMail.app/Contents/MacOS/MMail", "args": ["--mcp"] } } }
+```
+
+Settings › Claude shows both commands with the right path for your build.
+
+| Read | Organize | Write |
+|---|---|---|
+| `list_accounts`, `list_folders` | `set_flags` (read, starred) | `compose_message` (new, reply, reply all, forward) |
+| `list_messages`, `search_messages` | `triage` (archive, done, delete, spam) | `get_compose`, `update_compose` |
+| `get_message`, `show_message` | `move_message`, `snooze_message` | `add_attachment`, `remove_attachment` |
+| `get_attachment`, `save_attachment` | `label_message`, `list_labels` | `save_draft`, `send_message` |
+| `list_contacts` | | |
+
 ## Architecture
 
 ```

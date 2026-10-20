@@ -74,6 +74,7 @@ struct RootView: View {
 
         if let draft = model.compose {
             ComposeView(draft: draft)
+                .id(draft.id)   // a new draft from Claude rebuilds the composer
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .padding(24)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

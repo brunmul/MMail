@@ -186,6 +186,9 @@ final class AppModel: ObservableObject {
     @Published var sending: [SendingItem] = []   // in-flight sends (Outbox progress)
     @Published var snoozedUntil: [String: Date] = [:]   // "accountId#uid" -> wake date
     @Published var downloadingAttachments: Set<String> = []
+    /// Live view of the open composer, registered by ComposeView so Claude reads
+    /// what is on screen (the composer keeps its edits in local state).
+    var composeSnapshot: (id: UUID, read: () -> ComposeDraft)?
     private let kScheduled = "mmail.scheduled"
     private let kSnoozed = "mmail.snoozed"
     private var pollTimer: Timer?
@@ -1192,7 +1195,7 @@ final class AppModel: ObservableObject {
         MailCache.save(emails.filter { $0.account == account && $0.folder == "sent" }, account: account, folder: "sent")
     }
 
-    private func quotedBody(_ e: Email) -> String {
+    func quotedBody(_ e: Email) -> String {
         let s = e.resolvedSender
         let header = "On \(e.time), \(s.name) wrote:"
         let quoted = e.body.split(separator: "\n", omittingEmptySubsequences: false)
@@ -1463,7 +1466,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Folders that map to a real server mailbox / search and can be loaded.
-    private func isServerFolder(_ folderId: String) -> Bool {
+    func isServerFolder(_ folderId: String) -> Bool {
         !["home", "snoozed", "outbox"].contains(folderId)
     }
 
@@ -1799,7 +1802,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Long-lived IMAP connection per account (reused across operations).
-    private func session(for accountId: String) -> IMAPSession? {
+    func session(for accountId: String) -> IMAPSession? {
         if let s = imapSessions[accountId] { return s }
         guard let cfg = config(for: accountId), let pw = cfg.imapPassword else { return nil }
         let s = IMAPSession(config: cfg, password: pw)
@@ -1810,7 +1813,7 @@ final class AppModel: ObservableObject {
     /// Second long-lived connection per account, used exclusively for body
     /// reads. Lazily opened on first use; freed alongside the primary session
     /// when the account is signed out.
-    private func bodySession(for accountId: String) -> IMAPSession? {
+    func bodySession(for accountId: String) -> IMAPSession? {
         if let s = bodySessions[accountId] { return s }
         guard let cfg = config(for: accountId), let pw = cfg.imapPassword else { return nil }
         let s = IMAPSession(config: cfg, password: pw)
@@ -1824,7 +1827,7 @@ final class AppModel: ObservableObject {
     /// `Task.cancel()` mid-operation, but the next response or write attempt
     /// will surface the cancellation as a fail, and meanwhile the caller has
     /// already moved on.
-    private func withTimeout<T: Sendable>(_ seconds: TimeInterval,
+    func withTimeout<T: Sendable>(_ seconds: TimeInterval,
                                           _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask { try await operation() }
@@ -2466,7 +2469,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Per-message cache location for an attachment (original filename preserved).
-    private func attachmentCacheURL(_ email: Email, _ meta: AttachmentMeta) -> URL {
+    func attachmentCacheURL(_ email: Email, _ meta: AttachmentMeta) -> URL {
         let safeKey = "\(email.account)#\(email.uid ?? 0)".replacingOccurrences(of: "/", with: "_")
         return FileManager.default.temporaryDirectory
             .appendingPathComponent("MMailAttachments", isDirectory: true)
@@ -2660,7 +2663,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Resolve a special mailbox name, discovering the folder list if needed.
-    private func resolveMailbox(_ accountId: String, kind: MailboxKind, session: IMAPSession) async -> String? {
+    func resolveMailbox(_ accountId: String, kind: MailboxKind, session: IMAPSession) async -> String? {
         let folderId: String = {
             switch kind {
             case .sent: return "sent"; case .drafts: return "drafts"; case .trash: return "trash"

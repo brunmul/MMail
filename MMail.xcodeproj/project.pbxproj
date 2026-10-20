@@ -52,6 +52,10 @@
 		EDF6BA1F4277388005EA5BDA /* ReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B303764555CA0F1AA5D6431 /* ReaderView.swift */; };
 		F7178A73DD13D48B77E377D0 /* Atoms.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC7062ED4848255AFB2D1992 /* Atoms.swift */; };
 		FAD1D259B8395302EEB3C64B /* NIOIMAP in Frameworks */ = {isa = PBXBuildFile; productRef = 95385FAB221056A9B50D7261 /* NIOIMAP */; };
+		5B8440172C3B8F06C04968CC /* AgentServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B242B7D8FA1EF4DD3E8C22 /* AgentServer.swift */; };
+		542CC8B26220734FC1D18DD5 /* AgentTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1632BA0DFB73CE940E748FCA /* AgentTools.swift */; };
+		4E07D3B3C13CA33431DB0A34 /* MCPProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A4771176E39409EA45A39D6 /* MCPProxy.swift */; };
+		044D1C421F3FE0DB9040CD9D /* MCPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 470CA840D0E6BB61FDC044D8 /* MCPServer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -96,6 +100,10 @@
 		EE36DEB176137963E3CA7FE9 /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		EF0FD3634640269304B4DE33 /* MailProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailProvider.swift; sourceTree = "<group>"; };
 		FC7062ED4848255AFB2D1992 /* Atoms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Atoms.swift; sourceTree = "<group>"; };
+		39B242B7D8FA1EF4DD3E8C22 /* AgentServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentServer.swift; sourceTree = "<group>"; };
+		1632BA0DFB73CE940E748FCA /* AgentTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTools.swift; sourceTree = "<group>"; };
+		2A4771176E39409EA45A39D6 /* MCPProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPProxy.swift; sourceTree = "<group>"; };
+		470CA840D0E6BB61FDC044D8 /* MCPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +158,7 @@
 		89BC115E030851168966F292 /* MMail */ = {
 			isa = PBXGroup;
 			children = (
+				EEAF1F8781D2F3869F2BB353 /* Agent */,
 				FFA451DEF86DBE796013DCE8 /* Components */,
 				EE29428FC16FA34B0AD24A66 /* Mail */,
 				1B6D7051DE94829C05B1057E /* Models */,
@@ -223,6 +232,17 @@
 				903AD651E0AA8087A7D60DFF /* MiscViews.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		EEAF1F8781D2F3869F2BB353 /* Agent */ = {
+			isa = PBXGroup;
+			children = (
+				39B242B7D8FA1EF4DD3E8C22 /* AgentServer.swift */,
+				1632BA0DFB73CE940E748FCA /* AgentTools.swift */,
+				2A4771176E39409EA45A39D6 /* MCPProxy.swift */,
+				470CA840D0E6BB61FDC044D8 /* MCPServer.swift */,
+			);
+			path = Agent;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -327,6 +347,10 @@
 				6AB5697973DD2DFA70DCD13A /* MMailApp.swift in Sources */,
 				61164E07C300ED30D2AED5D6 /* MailAccountConfig.swift in Sources */,
 				724B0BD8337C5B7A22384EDC /* MailCache.swift in Sources */,
+				5B8440172C3B8F06C04968CC /* AgentServer.swift in Sources */,
+				542CC8B26220734FC1D18DD5 /* AgentTools.swift in Sources */,
+				4E07D3B3C13CA33431DB0A34 /* MCPProxy.swift in Sources */,
+				044D1C421F3FE0DB9040CD9D /* MCPServer.swift in Sources */,
 				82FD7DC1B326B431F597D040 /* MailProvider.swift in Sources */,
 				61FA290401BCED1CB7485359 /* ManualAccountSetupView.swift in Sources */,
 				482809988F6EB437DA58D4CD /* MiscViews.swift in Sources */,

@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
@@ -221,6 +222,13 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    section("Claude") {
+                        Text("Claude can read, search, organize and write your mail, attachments included, through MMail's local MCP server. Nothing leaves your Mac except what MMail itself sends.")
+                            .font(.system(size: 13)).foregroundStyle(p.fg3)
+                            .fixedSize(horizontal: false, vertical: true).padding(.bottom, 10)
+                        copyRow("Claude Code", "claude mcp add mmail -- \"\(mcpExecutable)\" --mcp")
+                        copyRow("Claude Desktop", "\"mmail\": { \"command\": \"\(mcpExecutable)\", \"args\": [\"--mcp\"] }")
+                    }
                     section("Keyboard & alerts") {
                         toggleRow("Keyboard (vim) navigation", "J / K to move, G-prefix to go to folders, single-key triage.",
                                   on: Binding(get: { model.vimNav }, set: { model.setVimNav($0) }))
@@ -263,6 +271,25 @@ struct SettingsView: View {
         guard !name.isEmpty else { return }
         model.addLabel(name)
         newLabelDraft = ""
+    }
+
+    private var mcpExecutable: String { Bundle.main.executableURL?.path ?? "/Applications/MMail.app/Contents/MacOS/MMail" }
+
+    private func copyRow(_ label: String, _ command: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).font(.system(size: 13, weight: .medium)).foregroundStyle(p.fg1).frame(width: 110, alignment: .leading)
+            Text(command).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(p.fg2)
+                .textSelection(.enabled).lineLimit(2)
+            Spacer()
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(command, forType: .string)
+                model.showToast("Copied")
+            } label: {
+                Text("Copy").font(.system(size: 12.5, weight: .medium)).foregroundStyle(p.brandBlue)
+            }.buttonStyle(.plain)
+        }
+        .padding(.vertical, 8)
     }
 
     private func section<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
