@@ -2258,7 +2258,9 @@ final class AppModel: ObservableObject {
                 let blockedIDs = Set(blocked.map { $0.id })
                 mapped.removeAll { blockedIDs.contains($0.id) }
             }
-            emails.append(contentsOf: mapped)
+            // New arrivals go on top: the list keeps the array's order, so appending
+            // put fresh mail at the bottom of "All" (only "Unread" showed it).
+            emails.insert(contentsOf: mapped.sorted { ($0.uid ?? 0) > ($1.uid ?? 0) }, at: 0)
             registerLabels(from: mapped)
         }
         if folderId == "inbox" {

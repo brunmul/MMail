@@ -94,9 +94,9 @@ struct HTMLMessageView: NSViewRepresentable {
           :root { color-scheme: light dark; }
           body { font: 14px -apple-system, system-ui, sans-serif; margin: 0; padding: 0;
                  overflow-wrap: break-word; -webkit-text-size-adjust: 100%; }
-          /* break-word, not anywhere: "anywhere" lets table cells shrink to one letter wide. */
-          img { max-width: 100% !important; height: auto; }
-          table { max-width: 100% !important; }
+          /* Leave images and tables to the mail's own layout, as Gmail does: forcing their
+             widths here blew images up past their max-width and squeezed the cells beside them.
+             break-word, not anywhere: "anywhere" lets table cells shrink to one letter wide. */
           a { color: #B4532F; }
         </style></head><body>\(html)</body></html>
         """
