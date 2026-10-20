@@ -30,7 +30,9 @@ struct EmailListView: View {
         .frame(width: model.readingPane ? 380 : nil)
         .frame(maxWidth: model.readingPane ? 380 : .infinity, maxHeight: .infinity)
         .background(p.bg1)
-        .overlay(Rectangle().fill(p.border).frame(width: 1), alignment: .trailing)
+        .overlay(alignment: .trailing) {
+            if model.readingPane { Rectangle().fill(p.border).frame(width: 1) }
+        }
     }
 
     // MARK: Header
@@ -57,44 +59,66 @@ struct EmailListView: View {
             return "\(n) \(n == 1 ? "message" : "messages")"
         }()
 
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title).font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(p.fg1)
-                Spacer()
+        let total = visible.count
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
+                Button {
+                    if model.selectionActive { model.clearSelection() } else { model.selectAllVisible() }
+                } label: {
+                    Image(systemName: model.selectionActive ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 15))
+                        .foregroundStyle(model.selectionActive ? p.brandBlue : p.fg2)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .help(model.selectionActive ? "Deselect all" : "Select all")
                 if scopeIsRealMail {
                     Button { model.userRefresh() } label: {
-                        if model.refreshing || scopeLoading {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Icon(name: "refresh", size: 14).foregroundStyle(p.fg3)
+                        Group {
+                            if model.refreshing || scopeLoading {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Icon(name: "refresh", size: 15).foregroundStyle(p.fg2)
+                            }
                         }
+                        .frame(width: 32, height: 32)
                     }
                     .buttonStyle(.plain)
                     .disabled(model.refreshing)
                     .help(model.refreshing ? "Refreshing…" : "Refresh")
                 }
-            }
-            HStack(spacing: 6) {
-                Text(sub).font(.system(size: 12.5)).foregroundStyle(p.fg3)
+                if isSearch || labelName != nil || model.folder != "inbox" {
+                    Text(isSearch ? sub : title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(p.fg2)
+                        .lineLimit(1)
+                        .padding(.leading, 8)
+                }
                 if model.searching {
                     ProgressView().controlSize(.small).scaleEffect(0.7)
-                    Text("searching all mail…").font(.system(size: 11.5)).foregroundStyle(p.fg4)
+                }
+                Spacer()
+                if total > 0 {
+                    Text("1–\(total) of \(total)")
+                        .font(.system(size: 12))
+                        .monospacedDigit()
+                        .foregroundStyle(p.fg3)
+                        .padding(.trailing, 8)
                 }
             }
+            .padding(.horizontal, 12)
+            .frame(height: 48)
             if model.folder == "inbox" && !isSearch && model.labelFilter == nil {
-                HStack(spacing: 4) {
+                HStack(spacing: 0) {
                     ForEach(InboxFilter.allCases, id: \.self) { f in
-                        filterChip(f)
+                        inboxTab(f, unread: unread)
                     }
+                    if !model.readingPane { Spacer() }
                 }
-                .padding(.top, 8)
+                .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 12)
     }
 
     private var selectionBar: some View {
@@ -138,16 +162,42 @@ struct EmailListView: View {
         .buttonStyle(.plain).help(help)
     }
 
-    private func filterChip(_ f: InboxFilter) -> some View {
+    private func inboxTab(_ f: InboxFilter, unread: Int) -> some View {
         let active = model.filter == f
+        let icon: String = {
+            switch f {
+            case .all: return "tray"
+            case .unread: return "envelope.badge"
+            case .people: return "person.2"
+            case .updates: return "info.circle"
+            }
+        }()
         return Button { model.filter = f } label: {
-            Text(f.title)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(active ? p.fg1 : p.fg3)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(active ? p.bg3 : Color.clear)
-                .clipShape(Capsule())
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.system(size: 15))
+                Text(f.title).font(.system(size: 13.5, weight: active ? .semibold : .regular))
+                if f == .unread && unread > 0 && !active {
+                    Text("\(unread) new")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7).padding(.vertical, 1)
+                        .background(p.brandBlue)
+                        .clipShape(Capsule())
+                }
+            }
+            .foregroundStyle(active ? p.brandBlue : p.fg2)
+            .padding(.horizontal, 16)
+            .frame(width: model.readingPane ? nil : 240, height: 52, alignment: .leading)
+            .frame(maxWidth: model.readingPane ? .infinity : nil, alignment: .leading)
+            .contentShape(Rectangle())
+            .overlay(alignment: .bottom) {
+                if active {
+                    UnevenRoundedRectangle(topLeadingRadius: 3, topTrailingRadius: 3)
+                        .fill(p.brandBlue)
+                        .frame(height: 3)
+                        .padding(.horizontal, 8)
+                }
+            }
         }
         .buttonStyle(.plain)
     }
@@ -167,6 +217,14 @@ struct EmailListView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0, pinnedViews: []) {
+                            if !model.readingPane {
+                                ForEach(visible) { e in
+                                    GmailRowView(email: e,
+                                                 showAccountDot: model.currentAccount == "all",
+                                                 accountColor: model.accountsById[e.account]?.color)
+                                        .id(e.id)
+                                }
+                            } else {
                             ForEach(groupByDay(visible), id: \.0) { day, items in
                                 Text(day.uppercased())
                                     .font(.system(size: 10.5, weight: .bold))
@@ -183,6 +241,7 @@ struct EmailListView: View {
                                                  accountColor: model.accountsById[e.account]?.color)
                                         .id(e.id)
                                 }
+                            }
                             }
                             if model.canLoadMore || model.downloadingAllOlder {
                                 loadOlderFooter
@@ -444,14 +503,43 @@ struct EmailRowView: View {
         }
         .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
         .onHover { hovered = $0 }
-        .contextMenu { contextMenuItems }
+        .contextMenu { EmailContextMenu(email: email) }
     }
 
-    /// Right-click menu for the row. Reply/forward set the selection first
-    /// since those actions read from `selectedEmail`; the triage actions
-    /// already take an explicit id.
-    @ViewBuilder
-    private var contextMenuItems: some View {
+    private var avatar: some View {
+        Avatar(sender: sender, size: 36)
+    }
+
+    private var rowBackground: Color {
+        if bulkSelected { return p.brandBlue100 }
+        if selected { return p.brandBlue100 }
+        if hovered { return p.bg2 }
+        return p.bg1
+    }
+
+    private func rowAction(_ icon: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Icon(name: icon, size: 14)
+                .foregroundStyle(p.fg3)
+                .frame(width: 26, height: 26)
+                .background(p.bg3.opacity(0.0001))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+// MARK: - Row context menu (shared by both row styles)
+
+/// Right-click menu for a row. Reply/forward set the selection first since
+/// those actions read from `selectedEmail`; triage actions take an explicit id.
+struct EmailContextMenu: View {
+    @EnvironmentObject var model: AppModel
+    let email: Email
+    private var sender: Sender? { email.resolvedSender }
+
+    var body: some View {
         Button { model.selectedId = email.id; model.reply() } label: {
             Label("Reply", systemImage: "arrowshape.turn.up.left")
         }
@@ -502,25 +590,135 @@ struct EmailRowView: View {
             Label("Delete", systemImage: "trash")
         }
     }
+}
 
-    private var avatar: some View {
-        Avatar(sender: sender, size: 36)
+// MARK: - Gmail-style single-line row (reading pane off)
+
+struct GmailRowView: View {
+    @EnvironmentObject var model: AppModel
+    @Environment(\.palette) private var p
+    let email: Email
+    let showAccountDot: Bool
+    let accountColor: Color?
+    @State private var hovered = false
+
+    private var bulkSelected: Bool { model.selectedIds.contains(email.id) }
+    private var keyboardSelected: Bool { email.id == model.selectedId }
+
+    private var displayName: String {
+        if ["sent", "drafts", "outbox"].contains(email.folder) {
+            guard let to = email.to?.first, !to.isEmpty else { return "(no recipient)" }
+            if let lt = to.firstIndex(of: "<") {
+                let name = String(to[..<lt]).trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { return "To: \(name)" }
+            }
+            return "To: \(to)"
+        }
+        return email.resolvedSender.name
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button { model.toggleSelect(email.id) } label: {
+                Image(systemName: bulkSelected ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 15))
+                    .foregroundStyle(bulkSelected ? p.brandBlue : p.fg4)
+                    .frame(width: 30, height: 40)
+            }
+            .buttonStyle(.plain)
+            Button { model.toggleStar(email.id) } label: {
+                Image(systemName: email.starred ? "star.fill" : "star")
+                    .font(.system(size: 14))
+                    .foregroundStyle(email.starred ? p.star : p.fg4)
+                    .frame(width: 30, height: 40)
+            }
+            .buttonStyle(.plain)
+            .help(email.starred ? "Starred" : "Not starred")
+
+            HStack(spacing: 6) {
+                if showAccountDot, let c = accountColor { Circle().fill(c).frame(width: 6, height: 6) }
+                if model.isVIP(email.fromEmail) { Icon(name: "crown", size: 10).foregroundStyle(p.star) }
+                Text(displayName)
+                    .font(.system(size: 13.5, weight: email.unread ? .bold : .regular))
+                    .foregroundStyle(p.fg1)
+                    .lineLimit(1)
+            }
+            .frame(width: 190, alignment: .leading)
+            .padding(.leading, 6)
+
+            HStack(spacing: 6) {
+                ForEach(email.labels, id: \.self) { l in
+                    if let def = model.label(for: l) {
+                        Text(def.name)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(p.fg2)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(p.bg4)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    }
+                }
+                (Text(email.subject)
+                    .font(.system(size: 13.5, weight: email.unread ? .bold : .regular))
+                    .foregroundColor(p.fg1)
+                 + Text(email.preview.isEmpty ? "" : " - \(email.preview)")
+                    .font(.system(size: 13.5))
+                    .foregroundColor(p.fg3))
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if email.hasAttachment && !hovered {
+                    Icon(name: "attach", size: 13).foregroundStyle(p.fg3)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if hovered {
+                HStack(spacing: 2) {
+                    hoverAction("archive", "Archive") { model.archive(email.id) }
+                    hoverAction("trash", "Delete") { model.delete(email.id) }
+                    hoverAction("mail", email.unread ? "Mark as read" : "Mark as unread") {
+                        if email.unread { markRead() } else { model.markUnread(email.id) }
+                    }
+                    hoverAction("clock", "Snooze") { model.snooze(email.id) }
+                }
+                .padding(.trailing, 8)
+            } else {
+                Text(email.time)
+                    .font(.system(size: 12, weight: email.unread ? .bold : .regular))
+                    .monospacedDigit()
+                    .foregroundStyle(email.unread ? p.fg1 : p.fg3)
+                    .frame(width: 84, alignment: .trailing)
+                    .padding(.trailing, 16)
+            }
+        }
+        .padding(.leading, 6)
+        .frame(height: 40)
+        .background(rowBackground)
+        .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
+        .shadow(color: .black.opacity(hovered ? 0.18 : 0), radius: hovered ? 2 : 0, y: hovered ? 1 : 0)
+        .zIndex(hovered ? 1 : 0)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if model.selectionActive { model.toggleSelect(email.id) } else { model.activate(email.id) }
+        }
+        .onHover { hovered = $0 }
+        .contextMenu { EmailContextMenu(email: email) }
     }
 
     private var rowBackground: Color {
-        if bulkSelected { return p.brandBlue100 }
-        if selected { return p.brandBlue100 }
-        if hovered { return p.bg2 }
-        return p.bg1
+        if bulkSelected || keyboardSelected { return p.brandBlue100 }
+        return email.unread ? p.bg1 : p.readRow
     }
 
-    private func rowAction(_ icon: String, help: String, action: @escaping () -> Void) -> some View {
+    private func markRead() {
+        guard let i = model.emails.firstIndex(where: { $0.id == email.id }) else { return }
+        model.emails[i].unread = false
+        model.applyRealFlag(model.emails[i], .seen, add: true)
+    }
+
+    private func hoverAction(_ icon: String, _ help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Icon(name: icon, size: 14)
-                .foregroundStyle(p.fg3)
-                .frame(width: 26, height: 26)
-                .background(p.bg3.opacity(0.0001))
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            Icon(name: icon, size: 15).foregroundStyle(p.fg2).frame(width: 32, height: 32)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)

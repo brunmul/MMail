@@ -15,7 +15,7 @@ struct ReaderView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(p.bg2)
+        .background(p.bg1)
     }
 
     private var emptyState: some View {
@@ -231,7 +231,7 @@ private struct ReaderContent: View {
     private var primaryCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(email.subject)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 22, weight: .regular))
                 .foregroundStyle(p.fg1)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 18)

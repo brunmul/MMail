@@ -99,6 +99,14 @@ xcodebuild -project MMail.xcodeproj -scheme MMail -configuration Debug build
 On first launch you'll see a welcome screen — choose **Set up IMAP manually** and enter
 your IMAP/SMTP host, port, username, and password.
 
+## Look & feel
+
+This fork follows Gmail's current look: tinted window with the mail in a white rounded panel,
+pastel Compose button, pill-shaped folder highlight, pill search field, inbox tabs, and dense
+single-line rows (read mail tinted, actions on hover). Light and dark palettes live in
+`MMail/Theme/Theme.swift`. It opens on the Inbox with the reading pane off, like Gmail
+(⌘⇧R toggles the split view).
+
 ## Claude integration (MCP)
 
 MMail embeds a [Model Context Protocol](https://modelcontextprotocol.io) server so Claude can drive

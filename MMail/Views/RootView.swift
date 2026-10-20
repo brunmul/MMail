@@ -21,6 +21,8 @@ struct RootView: View {
             }
         }
         .toolbar { toolbarContent }
+        .toolbarBackground(p.bg2, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
         .onAppear { model.installKeyMonitor(); model.startPolling(); model.bootstrapRealAccounts() }
         .onChange(of: model.searchFocusRequested) { _, req in
             if req {
@@ -47,18 +49,32 @@ struct RootView: View {
                 SidebarView()
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
-            if model.folder == "home" {
-                HomeView()
-            } else if model.folder == "outbox" {
-                OutboxView()
-            } else if model.readingPane {
+            // Gmail-style: the mail lives in one white rounded panel on the tinted window.
+            mainPanel
+                .background(p.bg1)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(.trailing, 16)
+                .padding(.bottom, 16)
+                .padding(.top, 4)
+                .padding(.leading, model.sidebarVisible ? 0 : 8)
+        }
+    }
+
+    @ViewBuilder
+    private var mainPanel: some View {
+        if model.folder == "home" {
+            HomeView()
+        } else if model.folder == "outbox" {
+            OutboxView()
+        } else if model.readingPane {
+            HStack(spacing: 0) {
                 EmailListView()
                 ReaderView()
-            } else if model.readerFullScreen {
-                ReaderView()
-            } else {
-                EmailListView()
             }
+        } else if model.readerFullScreen {
+            ReaderView()
+        } else {
+            EmailListView()
         }
     }
 
@@ -126,30 +142,30 @@ struct RootView: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: 8) {
-            Icon(name: "search", size: 13)
-                .foregroundStyle(searchFocused ? p.fg1 : p.fg3)
-            TextField("Search mail — sender, subject, body…", text: $model.searchQuery)
+        HStack(spacing: 10) {
+            Icon(name: "search", size: 15)
+                .foregroundStyle(searchFocused ? p.fg1 : p.fg2)
+            TextField("Search mail", text: $model.searchQuery)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12.5))
+                .font(.system(size: 14))
                 .focused($searchFocused)
                 .foregroundStyle(p.fg1)
                 .onSubmit { model.submitSearch() }
                 .onChange(of: model.searchQuery) { _, q in
                     if q.isEmpty { model.serverSearchResults = nil; model.searching = false }
                 }
-            if !model.searchActive {
-                Kbd("/")
-            }
             Button { model.openAdvancedSearch() } label: {
-                Icon(name: "sliders", size: 13).foregroundStyle(model.serverSearchResults != nil ? p.brandBlue : p.fg3)
+                Icon(name: "sliders", size: 15).foregroundStyle(model.serverSearchResults != nil ? p.brandBlue : p.fg2)
             }
             .buttonStyle(.plain)
-            .help("Advanced search")
+            .help("Show search options")
         }
-        .padding(.horizontal, 12)
-        .frame(width: 420, height: 26)
-        .contentShape(Rectangle())
+        .padding(.horizontal, 16)
+        .frame(width: 560, height: 34)
+        .background(searchFocused ? p.bg1 : p.searchBg)
+        .clipShape(Capsule())
+        .shadow(color: .black.opacity(searchFocused ? 0.18 : 0), radius: 3, y: 1)
+        .contentShape(Capsule())
         .onTapGesture {
             model.searchActive = true
             searchFocused = true

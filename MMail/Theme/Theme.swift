@@ -28,7 +28,7 @@ extension Color {
     }
 }
 
-// MARK: - Palette (light + dark token sets ported from tokens.css / styles.css)
+// MARK: - Palette (Gmail-inspired light + dark token sets)
 
 struct Palette {
     // Brand
@@ -68,63 +68,82 @@ struct Palette {
     // For folder-active text in dark mode
     let activeFolderText: Color
 
+    // Gmail surfaces
+    let composeBg: Color      // pastel "Compose" button
+    let composeFg: Color
+    let searchBg: Color       // pill search field
+    let readRow: Color        // tint behind already-read rows
+    let star: Color
+
     let isDark: Bool
 
+    // Gmail (Material 3) light tokens.
     static let light = Palette(
-        brandBlue: Color(hex: "2D3DEC"),
-        brandBlue600: Color(hex: "2536D1"),
-        brandBlue700: Color(hex: "1E2DB0"),
-        brandBlue100: Color(hex: "EEF1FF"),
-        brandBlue50: Color(hex: "F5F7FF"),
-        magenta: Color(hex: "E91E78"),
-        magenta600: Color(hex: "C9156A"),
-        magenta100: Color(hex: "FFF1F7"),
-        fg1: Color(hex: "0E0F1A"),
-        fg2: Color(hex: "3F4357"),
-        fg3: Color(hex: "6B7088"),
-        fg4: Color(hex: "9AA0B4"),
+        brandBlue: Color(hex: "0B57D0"),
+        brandBlue600: Color(hex: "0842A0"),
+        brandBlue700: Color(hex: "062E6F"),
+        brandBlue100: Color(hex: "D3E3FD"),
+        brandBlue50: Color(hex: "E8F0FE"),
+        magenta: Color(hex: "D93025"),
+        magenta600: Color(hex: "B3261E"),
+        magenta100: Color(hex: "FCE8E6"),
+        fg1: Color(hex: "1F1F1F"),
+        fg2: Color(hex: "444746"),
+        fg3: Color(hex: "5F6368"),
+        fg4: Color(hex: "80868B"),
         bg1: Color(hex: "FFFFFF"),
-        bg2: Color(hex: "F8F9FC"),
-        bg3: Color(hex: "F1F3F9"),
-        bg4: Color(hex: "E6E9F2"),
-        border: .rgba(14, 15, 26, 0.08),
-        borderStrong: .rgba(14, 15, 26, 0.14),
-        success: Color(hex: "1FB36B"),
-        success100: Color(hex: "E5F7EE"),
-        warning: Color(hex: "F4A52A"),
-        warning100: Color(hex: "FFF6E5"),
-        danger: Color(hex: "E5484D"),
-        danger100: Color(hex: "FCEBEC"),
-        activeFolderText: Color(hex: "2D3DEC"),
+        bg2: Color(hex: "F6F8FC"),
+        bg3: Color(hex: "EEF2F9"),
+        bg4: Color(hex: "E1E5EA"),
+        border: .rgba(31, 31, 31, 0.08),
+        borderStrong: .rgba(31, 31, 31, 0.16),
+        success: Color(hex: "188038"),
+        success100: Color(hex: "E6F4EA"),
+        warning: Color(hex: "F4B400"),
+        warning100: Color(hex: "FEF7E0"),
+        danger: Color(hex: "D93025"),
+        danger100: Color(hex: "FCE8E6"),
+        activeFolderText: Color(hex: "001D35"),
+        composeBg: Color(hex: "C2E7FF"),
+        composeFg: Color(hex: "001D35"),
+        searchBg: Color(hex: "E9EEF6"),
+        readRow: Color(hex: "F2F6FC"),
+        star: Color(hex: "F4B400"),
         isDark: false
     )
 
+    // Gmail dark tokens.
     static let dark = Palette(
-        brandBlue: Color(hex: "2D3DEC"),
-        brandBlue600: Color(hex: "2536D1"),
-        brandBlue700: Color(hex: "1E2DB0"),
-        brandBlue100: Color(hex: "20254A"),
-        brandBlue50: Color(hex: "1B1E3A"),
-        magenta: Color(hex: "E91E78"),
-        magenta600: Color(hex: "C9156A"),
-        magenta100: .rgba(233, 30, 120, 0.16),
-        fg1: Color(hex: "F3F4F8"),
-        fg2: Color(hex: "BFC2CF"),
-        fg3: Color(hex: "8E92A4"),
-        fg4: Color(hex: "5F6377"),
-        bg1: Color(hex: "15161D"),
-        bg2: Color(hex: "0F1015"),
-        bg3: Color(hex: "1D1F28"),
-        bg4: Color(hex: "292B36"),
+        brandBlue: Color(hex: "4C8DF6"),
+        brandBlue600: Color(hex: "3B7AE0"),
+        brandBlue700: Color(hex: "2B66C6"),
+        brandBlue100: Color(hex: "004A77"),
+        brandBlue50: Color(hex: "0B2A44"),
+        magenta: Color(hex: "F28B82"),
+        magenta600: Color(hex: "EE675C"),
+        magenta100: .rgba(242, 139, 130, 0.16),
+        fg1: Color(hex: "E3E3E3"),
+        fg2: Color(hex: "C4C7C5"),
+        fg3: Color(hex: "A8ABAA"),
+        fg4: Color(hex: "8E918F"),
+        bg1: Color(hex: "1E1F20"),
+        bg2: Color(hex: "131314"),
+        bg3: Color(hex: "282A2C"),
+        bg4: Color(hex: "333537"),
         border: .rgba(255, 255, 255, 0.08),
-        borderStrong: .rgba(255, 255, 255, 0.14),
-        success: Color(hex: "1FB36B"),
-        success100: .rgba(31, 179, 107, 0.16),
-        warning: Color(hex: "F4A52A"),
-        warning100: .rgba(244, 165, 42, 0.16),
-        danger: Color(hex: "E5484D"),
-        danger100: .rgba(229, 72, 77, 0.16),
-        activeFolderText: Color(hex: "C5CCFF"),
+        borderStrong: .rgba(255, 255, 255, 0.16),
+        success: Color(hex: "81C995"),
+        success100: .rgba(129, 201, 149, 0.16),
+        warning: Color(hex: "FDD663"),
+        warning100: .rgba(253, 214, 99, 0.16),
+        danger: Color(hex: "F28B82"),
+        danger100: .rgba(242, 139, 130, 0.16),
+        activeFolderText: Color(hex: "C2E7FF"),
+        composeBg: Color(hex: "004A77"),
+        composeFg: Color(hex: "C2E7FF"),
+        searchBg: Color(hex: "282A2C"),
+        readRow: Color(hex: "1A1B1C"),
+        star: Color(hex: "FDD663"),
         isDark: true
     )
 }

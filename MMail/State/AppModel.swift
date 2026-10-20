@@ -104,7 +104,7 @@ final class AppModel: ObservableObject {
     @Published var onboarding: Bool
     @Published var accounts: [Account] = []
     @Published var currentAccount: String = "all"
-    @Published var folder: String = "home"
+    @Published var folder: String = "inbox"   // Gmail opens on the inbox
     @Published var emails: [Email] = []
     @Published var selectedId: String?
     @Published var filter: InboxFilter = .all
@@ -218,7 +218,7 @@ final class AppModel: ObservableObject {
         onboarding = true
         dark = d.object(forKey: kDark) as? Bool ?? false
         sidebarVisible = d.object(forKey: kSidebar) as? Bool ?? true
-        readingPane = d.object(forKey: kReadingPane) as? Bool ?? true
+        readingPane = d.object(forKey: kReadingPane) as? Bool ?? false   // Gmail default: no split
         vimNav = d.object(forKey: kVimNav) as? Bool ?? true
         confirmDiscard = d.object(forKey: kConfirmDiscard) as? Bool ?? false
         notificationsEnabled = d.object(forKey: kNotifications) as? Bool ?? true
