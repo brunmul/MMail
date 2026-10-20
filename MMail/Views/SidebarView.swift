@@ -12,8 +12,6 @@ struct SidebarView: View {
     ]
 
     @State private var labelsOpen = true
-    @State private var now = Date()
-    private let tick = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -21,9 +19,6 @@ struct SidebarView: View {
             accountHeader
                 .padding(.bottom, 8)
 
-            welcome
-                .padding(.horizontal, 8)
-                .padding(.bottom, 10)
 
             WaveSeparator()
 
@@ -57,34 +52,6 @@ struct SidebarView: View {
         .frame(width: 216)
         .frame(maxHeight: .infinity)
         .background(p.bg2)
-        .onReceive(tick) { now = $0 }
-    }
-
-    // MARK: - Welcome (the only serif line in the bar)
-
-    private var welcome: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(greeting)
-                .font(Typo.serif(19))
-                .foregroundStyle(p.fg1)
-                .lineLimit(1)
-            HStack {
-                Text(now.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                Spacer()
-                Text(now.formatted(date: .omitted, time: .shortened))
-                    .fontWeight(.medium)
-                    .monospacedDigit()
-            }
-            .font(.system(size: 12))
-            .foregroundStyle(p.fg2)
-        }
-    }
-
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: now)
-        let hello = hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
-        let first = NSFullUserName().split(separator: " ").first.map(String.init) ?? ""
-        return first.isEmpty ? hello : "\(hello), \(first)"
     }
 
     // MARK: - Rows
