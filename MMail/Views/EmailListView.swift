@@ -431,9 +431,6 @@ struct EmailRowView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     HStack(spacing: 6) {
-                        if showAccountDot, let c = accountColor {
-                            Circle().fill(c).frame(width: 6, height: 6)
-                        }
                         if model.isVIP(email.fromEmail) {
                             Icon(name: "crown", size: 10).foregroundStyle(Color(hex: "F4A52A"))
                         }
@@ -636,7 +633,6 @@ struct GmailRowView: View {
             .help(email.starred ? "Starred" : "Not starred")
 
             HStack(spacing: 6) {
-                if showAccountDot, let c = accountColor { Circle().fill(c).frame(width: 6, height: 6) }
                 if model.isVIP(email.fromEmail) { Icon(name: "crown", size: 10).foregroundStyle(p.star) }
                 Text(displayName)
                     .font(.system(size: 13.5, weight: email.unread ? .bold : .regular))

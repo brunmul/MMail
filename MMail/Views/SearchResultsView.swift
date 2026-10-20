@@ -93,9 +93,6 @@ struct SearchResultsView: View {
                 Avatar(sender: sender, size: 34)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
-                        if model.currentAccount == "all", let c = model.accountsById[email.account]?.color {
-                            Circle().fill(c).frame(width: 6, height: 6)
-                        }
                         Text(sender.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(p.fg1).lineLimit(1)
                         Spacer(minLength: 4)
                         Text(email.time).font(.system(size: 11, weight: .medium)).monospacedDigit().foregroundStyle(p.fg3)
