@@ -44,7 +44,6 @@ struct RootView: View {
 
     private var content: some View {
         HStack(spacing: 0) {
-            AccountRailView()
             if model.sidebarVisible {
                 SidebarView()
                     .transition(.move(edge: .leading).combined(with: .opacity))

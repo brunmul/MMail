@@ -17,13 +17,13 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Slack-style: the account switcher heads the bar, with settings and compose beside it.
+            accountHeader
+                .padding(.bottom, 8)
+
             welcome
                 .padding(.horizontal, 8)
-                .padding(.top, 6)
-                .padding(.bottom, 12)
-
-            composeButton
-                .padding(.bottom, 6)
+                .padding(.bottom, 10)
 
             WaveSeparator()
 
@@ -52,9 +52,6 @@ struct SidebarView: View {
             }
 
             Spacer(minLength: 8)
-
-            WaveSeparator()
-            footer
         }
         .padding(8)
         .frame(width: 216)
@@ -88,34 +85,6 @@ struct SidebarView: View {
         let hello = hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
         let first = NSFullUserName().split(separator: " ").first.map(String.init) ?? ""
         return first.isEmpty ? hello : "\(hello), \(first)"
-    }
-
-    // MARK: - Compose: the white "current" pill with a touch of clay
-
-    private var composeButton: some View {
-        Button { model.startCompose() } label: {
-            HStack(spacing: 8) {
-                Icon(name: "pencil", size: 14, weight: .regular)
-                    .foregroundStyle(Arcos.clay)
-                Text("Compose").font(.system(size: 13, weight: .medium))
-                Spacer()
-                Text("C")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(p.fg3)
-                    .padding(.horizontal, 5)
-                    .frame(height: 15)
-                    .background(Arcos.chipFill(p), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-            }
-            .foregroundStyle(p.composeFg)
-            .padding(.leading, 8)
-            .padding(.trailing, 6)
-            .frame(height: 32)
-            .background(p.composeBg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .shadow(color: Arcos.currentShadow, radius: 1.5, y: 0.5)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Compose (C)")
     }
 
     // MARK: - Rows
@@ -218,28 +187,91 @@ struct SidebarView: View {
         .buttonStyle(.plain)
     }
 
-    private var footer: some View {
+    // MARK: - Account switcher (Slack-style header)
+
+    private var accountHeader: some View {
         let isAll = model.currentAccount == "all"
         let acct = model.accountsById[model.currentAccount]
-        return HStack(spacing: 8) {
-            HStack(spacing: 10) {
-                GradientTile(colors: isAll ? [Color(hex: "D97757"), Color(hex: "C15F3C")] : (acct?.gradientColors ?? []),
-                             text: isAll ? "M" : (acct?.initials ?? "M"),
-                             size: 24, cornerRadius: 7, fontSize: 10)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(isAll ? "All inboxes" : (acct?.name ?? "")).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(p.fg1)
-                    Text(isAll ? "Unified view" : (acct?.email ?? "")).font(.system(size: 11)).foregroundStyle(p.fg3)
-                        .lineLimit(1)
+        let title = isAll ? "All inboxes" : (acct?.name ?? "Mail")
+        let othersUnread = model.accounts
+            .filter { $0.id != model.currentAccount }
+            .reduce(0) { $0 + (model.unreadByAccount[$1.id] ?? 0) }
+        return HStack(spacing: 4) {
+            Menu {
+                Button { model.currentAccount = "all" } label: {
+                    Label(menuTitle("All inboxes", unread: isAll ? 0 : model.unreadByAccount.values.reduce(0, +)),
+                          systemImage: isAll ? "checkmark" : "tray.2")
                 }
-                Spacer(minLength: 0)
+                if !model.accounts.isEmpty { Divider() }
+                ForEach(model.accounts) { a in
+                    let on = model.currentAccount == a.id
+                    Button { model.currentAccount = a.id } label: {
+                        Label(menuTitle(a.name, unread: on ? 0 : (model.unreadByAccount[a.id] ?? 0), detail: a.email),
+                              systemImage: on ? "checkmark" : "person.crop.circle")
+                    }
+                }
+                Divider()
+                Button { model.addingAccount = true } label: { Label("Add account…", systemImage: "plus") }
+                Button { model.settings = true } label: { Label("Settings…", systemImage: "gearshape") }
+                Button { model.help = true } label: { Label("Keyboard shortcuts", systemImage: "command") }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(p.fg1)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(p.fg2)
+                    if othersUnread > 0 {
+                        Circle().fill(Arcos.badge).frame(width: 7, height: 7)
+                            .help("\(othersUnread) unread in other accounts")
+                    }
+                }
+                .contentShape(Rectangle())
             }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
 
-            Button { model.help = true } label: { Icon(name: "command", size: 14).foregroundStyle(p.fg2) }
-                .buttonStyle(.plain).help("Shortcuts (?)")
-            Button { model.settings = true } label: { Icon(name: "settings", size: 14).foregroundStyle(p.fg2) }
-                .buttonStyle(.plain).help("Settings")
+            Spacer(minLength: 4)
+
+            headerIcon("gearshape", help: "Settings") { model.settings = true }
+            headerIcon("square.and.pencil", help: "Compose (C)") { model.startCompose() }
         }
-        .padding(.horizontal, 8)
+        .padding(.leading, 8)
         .padding(.top, 2)
+        .frame(height: 32)
+    }
+
+    private func menuTitle(_ name: String, unread: Int, detail: String? = nil) -> String {
+        var t = name
+        if let detail, !detail.isEmpty, detail != name { t += " — \(detail)" }
+        if unread > 0 { t += "  (\(unread))" }
+        return t
+    }
+
+    private func headerIcon(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
+        HeaderIconButton(symbol: symbol, action: action).help(help)
+    }
+}
+
+private struct HeaderIconButton: View {
+    @Environment(\.palette) private var p
+    let symbol: String
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(p.fg1.opacity(0.8))
+                .frame(width: 28, height: 28)
+                .background(hover ? Arcos.hoverFill(p) : .clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
     }
 }
