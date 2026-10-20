@@ -644,7 +644,7 @@ struct GmailRowView: View {
 
             HStack(spacing: 6) {
                 (Text(email.subject)
-                    .font(.system(size: 13.5, weight: email.unread || hovered ? .bold : .regular))
+                    .font(.system(size: 13.5, weight: email.unread ? .bold : .regular))
                     .foregroundColor(p.fg1)
                  + Text(email.preview.isEmpty ? "" : " - \(email.preview)")
                     .font(.system(size: 13.5))
@@ -678,10 +678,14 @@ struct GmailRowView: View {
         }
         .padding(.leading, 8)
         .frame(height: 40)
-        // Gmail-like row: full width with a hairline between rows; on hover the
-        // subject turns bold instead of the row casting a shadow.
+        // Same hover as the sidebar: a soft rounded fill, no shadow, no bold.
         .background(rowBackground)
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(hovered && !(bulkSelected || keyboardSelected) ? Arcos.hoverFill(p) : .clear)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .allowsHitTesting(false))
         .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
+        .animation(.easeOut(duration: 0.12), value: hovered)
         .contentShape(Rectangle())
         .onTapGesture {
             if model.selectionActive { model.toggleSelect(email.id) } else { model.activate(email.id) }
