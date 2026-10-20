@@ -45,7 +45,7 @@ private struct ReaderContent: View {
     @State private var newLabelOpen = false
     @State private var newLabelName = ""
     @State private var htmlHeight: CGFloat = 0
-    @State private var loadImages = false
+    @State private var loadImages = true   // images show by default, like Gmail
     @State private var snoozePickerOpen = false
     @State private var snoozeDate = Date()
 
