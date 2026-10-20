@@ -508,9 +508,9 @@ struct EmailRowView: View {
     }
 
     private var rowBackground: Color {
-        if bulkSelected { return p.brandBlue100 }
-        if selected { return p.brandBlue100 }
-        if hovered { return Arcos.hoverFill(p) }
+        // No orange "active" wash: a checked row gets a neutral fill, the open one the hover fill.
+        if bulkSelected { return Arcos.chipFill(p) }
+        if selected || hovered { return Arcos.hoverFill(p) }
         return .clear
     }
 
@@ -681,7 +681,7 @@ struct GmailRowView: View {
         // Same hover as the sidebar: a soft rounded fill, no shadow, no bold.
         .background(rowBackground)
         .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(hovered && !(bulkSelected || keyboardSelected) ? Arcos.hoverFill(p) : .clear)
+            .fill(hovered && !bulkSelected ? Arcos.hoverFill(p) : .clear)
             .padding(.horizontal, 6).padding(.vertical, 2)
             .allowsHitTesting(false))
         .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
@@ -695,7 +695,8 @@ struct GmailRowView: View {
     }
 
     private var rowBackground: Color {
-        if bulkSelected || keyboardSelected { return p.brandBlue100 }
+        // No orange "active" wash on the current row; only checked rows get a neutral fill.
+        if bulkSelected { return Arcos.chipFill(p) }
         return email.unread ? p.bg1 : p.readRow
     }
 
