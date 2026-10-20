@@ -1268,7 +1268,7 @@ final class AppModel: ObservableObject {
     }
 
     func setFolder(_ f: String) {
-        folder = f
+        folder = f == "home" ? "inbox" : f   // the Home dashboard was removed
         labelFilter = nil
         readerFullScreen = false
         clearSelection()
@@ -1319,7 +1319,6 @@ final class AppModel: ObservableObject {
             Command(id: "unread", group: "Triage", label: "Mark unread", icon: "mail", shortcut: "U") { [weak self] in self?.markUnread() },
             Command(id: "star", group: "Triage", label: "Star / unstar", icon: "star", shortcut: "S") { [weak self] in self?.toggleStar() },
             Command(id: "go-inbox", group: "Go to", label: "Go to Inbox", icon: "inbox", shortcut: "G I") { [weak self] in self?.setFolder("inbox") },
-            Command(id: "go-home", group: "Go to", label: "Go to Home", icon: "home", shortcut: "G H") { [weak self] in self?.setFolder("home") },
             Command(id: "go-starred", group: "Go to", label: "Go to Starred", icon: "star", shortcut: "G S") { [weak self] in self?.setFolder("starred") },
             Command(id: "go-snoozed", group: "Go to", label: "Go to Snoozed", icon: "clock", shortcut: "G Z") { [weak self] in self?.setFolder("snoozed") },
             Command(id: "go-done", group: "Go to", label: "Go to Done", icon: "done", shortcut: "G E") { [weak self] in self?.setFolder("done") },
@@ -2774,7 +2773,7 @@ final class AppModel: ObservableObject {
 
         // g-prefix
         if pendingG {
-            let dest = ["h": "home", "i": "inbox", "z": "snoozed", "e": "done", "t": "sent", "s": "starred", "d": "drafts"][lower]
+            let dest = ["i": "inbox", "z": "snoozed", "e": "done", "t": "sent", "s": "starred", "d": "drafts"][lower]
             if let d = dest { setFolder(d) }
             pendingG = false
             return true

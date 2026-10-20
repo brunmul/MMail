@@ -61,7 +61,6 @@ enum SampleData {
     ]
 
     static let folders: [Folder] = [
-        Folder(id: "home", name: "Home", shortcut: "g h"),
         Folder(id: "inbox", name: "Inbox", shortcut: "g i"),
         Folder(id: "starred", name: "Starred", shortcut: "g s"),
         Folder(id: "snoozed", name: "Snoozed", shortcut: "g z"),
