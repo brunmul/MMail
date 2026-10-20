@@ -41,6 +41,15 @@ enum Privacy {
     }
 }
 
+/// The message is sized to its full content height inside the reader's ScrollView,
+/// so the web view never needs to scroll itself: hand wheel events to the
+/// enclosing ScrollView, otherwise scrolling stops whenever the pointer is over the mail.
+final class PassthroughWebView: WKWebView {
+    override func scrollWheel(with event: NSEvent) {
+        nextResponder?.scrollWheel(with: event)
+    }
+}
+
 /// Renders an email's HTML body in a WKWebView. Remote content (images, fonts,
 /// scripts, external CSS) is blocked by default for privacy; pass blockRemote
 /// false to load it. Reports its content height so it can size itself.
@@ -53,11 +62,22 @@ struct HTMLMessageView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        let web = WKWebView(frame: .zero, configuration: config)
+        // Report the content height again whenever it changes (images arriving, fonts),
+        // so the message is never cut off and never needs to scroll on its own.
+        config.userContentController.add(context.coordinator, name: "height")
+        config.userContentController.addUserScript(WKUserScript(source: """
+            new ResizeObserver(() => window.webkit.messageHandlers.height.postMessage(
+                document.documentElement.scrollHeight)).observe(document.documentElement);
+            """, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+        let web = PassthroughWebView(frame: .zero, configuration: config)
         web.navigationDelegate = context.coordinator
         web.setValue(false, forKey: "drawsBackground")
         context.coordinator.load(web, html: html, blockRemote: blockRemote)
         return web
+    }
+
+    static func dismantleNSView(_ web: WKWebView, coordinator: Coordinator) {
+        web.configuration.userContentController.removeScriptMessageHandler(forName: "height")
     }
 
     func updateNSView(_ web: WKWebView, context: Context) {
@@ -80,7 +100,7 @@ struct HTMLMessageView: NSViewRepresentable {
         """
     }
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         let parent: HTMLMessageView
         var lastHTML = ""
         var lastBlock = true
@@ -102,6 +122,14 @@ struct HTMLMessageView: NSViewRepresentable {
                     if let list { web.configuration.userContentController.add(list) }
                     web.loadHTMLString(body, baseURL: nil)
                 }
+        }
+
+        func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+            if let h = message.body as? CGFloat, h > 0 {
+                DispatchQueue.main.async { self.parent.height = ceil(h) }
+            } else if let n = message.body as? NSNumber, n.doubleValue > 0 {
+                DispatchQueue.main.async { self.parent.height = ceil(CGFloat(n.doubleValue)) }
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
