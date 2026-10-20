@@ -513,8 +513,8 @@ struct EmailRowView: View {
     private var rowBackground: Color {
         if bulkSelected { return p.brandBlue100 }
         if selected { return p.brandBlue100 }
-        if hovered { return p.bg2 }
-        return p.bg1
+        if hovered { return Arcos.hoverFill(p) }
+        return .clear
     }
 
     private func rowAction(_ icon: String, help: String, action: @escaping () -> Void) -> some View {
@@ -647,16 +647,6 @@ struct GmailRowView: View {
             .padding(.leading, 6)
 
             HStack(spacing: 6) {
-                ForEach(email.labels, id: \.self) { l in
-                    if let def = model.label(for: l) {
-                        Text(def.name)
-                            .font(.system(size: 11.5, weight: .medium))
-                            .foregroundStyle(p.fg2)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(p.bg4)
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    }
-                }
                 (Text(email.subject)
                     .font(.system(size: 13.5, weight: email.unread ? .bold : .regular))
                     .foregroundColor(p.fg1)
@@ -690,12 +680,12 @@ struct GmailRowView: View {
                     .padding(.trailing, 16)
             }
         }
-        .padding(.leading, 6)
-        .frame(height: 40)
-        .background(rowBackground)
-        .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
-        .shadow(color: .black.opacity(hovered ? 0.18 : 0), radius: hovered ? 2 : 0, y: hovered ? 1 : 0)
-        .zIndex(hovered ? 1 : 0)
+        .padding(.leading, 2)
+        .frame(height: 38)
+        // Arcos row: a soft rounded fill on hover, the clay wash when selected, no lines or shadows.
+        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(rowBackground))
+        .padding(.horizontal, 6)
+        .animation(.easeOut(duration: 0.12), value: hovered)
         .contentShape(Rectangle())
         .onTapGesture {
             if model.selectionActive { model.toggleSelect(email.id) } else { model.activate(email.id) }
@@ -706,7 +696,8 @@ struct GmailRowView: View {
 
     private var rowBackground: Color {
         if bulkSelected || keyboardSelected { return p.brandBlue100 }
-        return email.unread ? p.bg1 : p.readRow
+        if hovered { return Arcos.hoverFill(p) }
+        return .clear
     }
 
     private func markRead() {
