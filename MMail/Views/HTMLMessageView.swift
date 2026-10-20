@@ -75,7 +75,7 @@ struct HTMLMessageView: NSViewRepresentable {
           body { font: 14px -apple-system, system-ui, sans-serif; margin: 0; padding: 0;
                  word-wrap: break-word; overflow-wrap: anywhere; -webkit-text-size-adjust: 100%; }
           img, table { max-width: 100% !important; height: auto; }
-          a { color: #2D3DEC; }
+          a { color: #B4532F; }
         </style></head><body>\(html)</body></html>
         """
     }
