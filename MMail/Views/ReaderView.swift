@@ -231,7 +231,7 @@ private struct ReaderContent: View {
     private var primaryCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(email.subject)
-                .font(.system(size: 22, weight: .regular))
+                .font(Typo.serif(26))
                 .foregroundStyle(p.fg1)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 18)

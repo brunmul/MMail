@@ -56,7 +56,7 @@ enum Icons {
 struct Icon: View {
     let name: String
     var size: CGFloat = 16
-    var weight: Font.Weight = .regular
+    var weight: Font.Weight = .light   // Arcos: thin outline symbols
 
     var body: some View {
         Image(systemName: Icons.map[name] ?? "questionmark")

@@ -49,13 +49,15 @@ struct RootView: View {
                 SidebarView()
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
-            // Gmail-style: the mail lives in one white rounded panel on the tinted window.
+            // Arcos: the mail sits like a window set into the warm paper of the bar.
             mainPanel
                 .background(p.bg1)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .padding(.trailing, 16)
-                .padding(.bottom, 16)
-                .padding(.top, 4)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Arcos.outline(p).opacity(0.6), lineWidth: 1))
+                .padding(.trailing, 8)
+                .padding(.bottom, 8)
+                .padding(.top, 2)
                 .padding(.leading, model.sidebarVisible ? 0 : 8)
         }
     }
@@ -160,12 +162,12 @@ struct RootView: View {
             .buttonStyle(.plain)
             .help("Show search options")
         }
-        .padding(.horizontal, 16)
-        .frame(width: 560, height: 34)
-        .background(searchFocused ? p.bg1 : p.searchBg)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(searchFocused ? 0.18 : 0), radius: 3, y: 1)
-        .contentShape(Capsule())
+        .padding(.horizontal, 12)
+        .frame(width: 520, height: 28)
+        .background(p.searchBg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .stroke(searchFocused ? Arcos.clay.opacity(0.6) : p.border, lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .onTapGesture {
             model.searchActive = true
             searchFocused = true
