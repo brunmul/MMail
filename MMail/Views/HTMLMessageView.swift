@@ -93,8 +93,10 @@ struct HTMLMessageView: NSViewRepresentable {
         <style>
           :root { color-scheme: light dark; }
           body { font: 14px -apple-system, system-ui, sans-serif; margin: 0; padding: 0;
-                 word-wrap: break-word; overflow-wrap: anywhere; -webkit-text-size-adjust: 100%; }
-          img, table { max-width: 100% !important; height: auto; }
+                 overflow-wrap: break-word; -webkit-text-size-adjust: 100%; }
+          /* break-word, not anywhere: "anywhere" lets table cells shrink to one letter wide. */
+          img { max-width: 100% !important; height: auto; }
+          table { max-width: 100% !important; }
           a { color: #B4532F; }
         </style></head><body>\(html)</body></html>
         """
