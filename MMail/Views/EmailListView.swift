@@ -263,9 +263,6 @@ struct EmailListView: View {
                             }
                         }
                     }
-                    // Rows keep their section while the pointer is over the list.
-                    .onHover { inside in inside ? model.freezeSections() : model.unfreezeSections() }
-                    .onDisappear { model.unfreezeSections() }
                     .onChange(of: model.selectedId) { _, id in
                         if let id { withAnimation { proxy.scrollTo(id, anchor: .center) } }
                     }
@@ -735,6 +732,12 @@ struct GmailRowView: View {
             hovered = h
             if h { model.hoveredId = email.id; model.keyboardNav = false }
             else if model.hoveredId == email.id { model.hoveredId = nil }
+        }
+        // A row that just moved to another section is no longer under the pointer:
+        // drop its hover so it doesn't carry the highlight (or U) to its new place.
+        .onChange(of: model.section(of: email)) { _, _ in
+            hovered = false
+            if model.hoveredId == email.id { model.hoveredId = nil }
         }
         .contextMenu { EmailContextMenu(email: email) }
     }
