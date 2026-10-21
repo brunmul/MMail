@@ -214,6 +214,7 @@ final class AppModel: ObservableObject {
     private let kWeatherCity = "mmail.weatherCity"
 
     private var keyMonitor: Any?
+    private var clickMonitor: Any?
     private var toastWorkItem: DispatchWorkItem?
     private var pendingSendWork: DispatchWorkItem?
 
@@ -2755,10 +2756,20 @@ final class AppModel: ObservableObject {
             guard let self else { return event }
             return self.handleKeyDown(event) ? nil : event
         }
+        // Clicking anywhere outside a text field leaves it (e.g. the search box),
+        // so the single-key shortcuts work again.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self, self.isTyping, self.compose == nil, !self.anyOverlayOpen,
+                  let window = event.window, let content = window.contentView else { return event }
+            let hit = content.hitTest(content.convert(event.locationInWindow, from: nil))
+            if !(hit is NSTextField || hit is NSTextView) { window.makeFirstResponder(nil) }
+            return event
+        }
     }
 
     func removeKeyMonitor() {
         if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+        if let m = clickMonitor { NSEvent.removeMonitor(m); clickMonitor = nil }
     }
 
     private var isTyping: Bool {
@@ -2800,6 +2811,8 @@ final class AppModel: ObservableObject {
         if event.keyCode == 53 {
             if searchModalOpen { dismissSearch(); return true }
             if anyOverlayOpen { closeOverlays(); return true }
+            // Escape in a text field (the search box) leaves it and keeps the results.
+            if isTyping { NSApp.keyWindow?.makeFirstResponder(nil); return true }
             if selectionActive { clearSelection(); return true }
             // From a result opened full-width, Escape goes back to the results first.
             if readerFullScreen { readerFullScreen = false; return true }
