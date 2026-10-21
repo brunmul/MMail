@@ -230,13 +230,16 @@ struct EmailListView: View {
                     ScrollView {
                         LazyVStack(spacing: 0, pinnedViews: []) {
                             if !model.readingPane {
-                                ForEach(listSections(visible), id: \.0) { title, items in
-                                    if let title { sectionTitle(title) }
-                                    ForEach(items) { e in
+                                // One flat list (titles and rows), one identity per row: rows
+                                // moving between sections no longer leave a stale copy behind.
+                                ForEach(listRows(visible)) { row in
+                                    switch row {
+                                    case .title(let title):
+                                        sectionTitle(title)
+                                    case .mail(let e):
                                         GmailRowView(email: e,
                                                      showAccountDot: model.currentAccount == "all",
                                                      accountColor: model.accountsById[e.account]?.color)
-                                            .id(e.id)
                                     }
                                 }
                             } else {
@@ -270,6 +273,25 @@ struct EmailListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private enum ListRow: Identifiable {
+        case title(String), mail(Email)
+        var id: String {
+            switch self {
+            case .title(let t): return "section:\(t)"
+            case .mail(let e): return e.id
+            }
+        }
+    }
+
+    private func listRows(_ visible: [Email]) -> [ListRow] {
+        var rows: [ListRow] = [], seen = Set<String>()
+        for (title, items) in listSections(visible) {
+            if let title { rows.append(.title(title)) }
+            for e in items where seen.insert(e.id).inserted { rows.append(.mail(e)) }
+        }
+        return rows
     }
 
     /// Pinned, then Unread (All only), then the rest — from the model's single ordering.
