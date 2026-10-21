@@ -230,22 +230,14 @@ struct EmailListView: View {
                     ScrollView {
                         LazyVStack(spacing: 0, pinnedViews: []) {
                             if !model.readingPane {
-                                let pinned = model.showsPinnedSection ? visible.filter { model.isPinned($0.id) } : []
-                                if !pinned.isEmpty {
-                                    sectionTitle("Pinned")
-                                    ForEach(pinned) { e in
+                                ForEach(listSections(visible), id: \.0) { title, items in
+                                    if let title { sectionTitle(title) }
+                                    ForEach(items) { e in
                                         GmailRowView(email: e,
                                                      showAccountDot: model.currentAccount == "all",
                                                      accountColor: model.accountsById[e.account]?.color)
                                             .id(e.id)
                                     }
-                                    sectionTitle("Everything else")
-                                }
-                                ForEach(pinned.isEmpty ? visible : visible.filter { !model.isPinned($0.id) }) { e in
-                                    GmailRowView(email: e,
-                                                 showAccountDot: model.currentAccount == "all",
-                                                 accountColor: model.accountsById[e.account]?.color)
-                                        .id(e.id)
                                 }
                             } else {
                             ForEach(groupByDay(visible), id: \.0) { day, items in
@@ -278,6 +270,20 @@ struct EmailListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Pinned, then Unread (All only), then the rest. A lone section gets no title.
+    private func listSections(_ visible: [Email]) -> [(String?, [Email])] {
+        let pinned = model.showsPinnedSection ? visible.filter { model.isPinned($0.id) } : []
+        let rest = pinned.isEmpty ? visible : visible.filter { !model.isPinned($0.id) }
+        let unread = model.showsUnreadSection ? rest.filter { $0.unread } : []
+        let others = unread.isEmpty ? rest : rest.filter { !$0.unread }
+        var sections: [(String?, [Email])] = []
+        if !pinned.isEmpty { sections.append(("Pinned", pinned)) }
+        if !unread.isEmpty { sections.append(("Unread", unread)) }
+        if sections.isEmpty { return [(nil, others)] }
+        if !others.isEmpty { sections.append(("Everything else", others)) }
+        return sections
     }
 
     private func sectionTitle(_ title: String) -> some View {

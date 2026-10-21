@@ -351,9 +351,16 @@ final class AppModel: ObservableObject {
         case .updates: list = visibleEmails.filter { SampleData.senders[$0.from]?.org == .bot }
         case .all: list = visibleEmails
         }
-        // Pinned mail heads the inbox, in its own section.
-        guard !pinnedIds.isEmpty else { return list }
-        return list.filter { pinnedIds.contains($0.id) } + list.filter { !pinnedIds.contains($0.id) }
+        // Pinned mail heads the inbox, then (in All) unread mail, each in its own section.
+        let pinned = list.filter { pinnedIds.contains($0.id) }
+        let rest = list.filter { !pinnedIds.contains($0.id) }
+        guard filter == .all else { return pinned + rest }
+        return pinned + rest.filter { $0.unread } + rest.filter { !$0.unread }
+    }
+
+    /// All in the inbox shows an "Unread" section under Pinned.
+    var showsUnreadSection: Bool {
+        folder == "inbox" && filter == .all && !searchIsActive && labelFilter == nil
     }
 
     /// The inbox shows a "Pinned" section above the rest.

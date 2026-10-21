@@ -92,7 +92,7 @@ struct Palette {
         fg3: Color(hex: "7D7C76"),
         fg4: Color(hex: "A9A79F"),
         bg1: Color(hex: "FFFFFF"),
-        bg2: Color(hex: "F5F4ED"),            // surface: the paper of the bar
+        bg2: Color(hex: "EFEDE4"),            // surface: the paper of the bar
         bg3: Color(hex: "EFEEE6"),
         bg4: Color(hex: "E6E4DA"),
         border: .rgba(0, 0, 0, 0.08),
@@ -127,7 +127,7 @@ struct Palette {
         fg3: Color(hex: "8C8A84"),
         fg4: Color(hex: "6B6965"),
         bg1: Color(hex: "2A2928"),
-        bg2: Color(hex: "1F1E1D"),
+        bg2: Color(hex: "1A1918"),
         bg3: Color(hex: "333230"),
         bg4: Color(hex: "3D3C39"),
         border: .rgba(255, 255, 255, 0.08),
