@@ -430,10 +430,24 @@ final class AppModel: ObservableObject {
 
     // MARK: - Bulk selection
 
+    /// Last row toggled by hand: the start of a Shift-click range.
+    private var selectionAnchor: String?
+
     func toggleSelect(_ id: String) {
         if selectedIds.contains(id) { selectedIds.remove(id) } else { selectedIds.insert(id) }
+        selectionAnchor = id
     }
-    func clearSelection() { selectedIds.removeAll() }
+
+    /// Shift-click: select every visible row between the anchor and this one.
+    func selectRange(to id: String) {
+        let ids = filteredEmails.map(\.id)
+        guard let anchor = selectionAnchor, let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) else {
+            toggleSelect(id); return
+        }
+        selectedIds.formUnion(ids[min(a, b)...max(a, b)])
+    }
+
+    func clearSelection() { selectedIds.removeAll(); selectionAnchor = nil }
     func selectAllVisible() { selectedIds = Set(filteredEmails.map { $0.id }) }
 
     func bulkArchive() { bulkTriage(localFolder: "archive", serverFolder: "archive", verb: "Archived") }

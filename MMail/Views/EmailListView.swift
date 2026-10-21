@@ -611,13 +611,7 @@ struct GmailRowView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Button { model.toggleSelect(email.id) } label: {
-                Image(systemName: bulkSelected ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 15))
-                    .foregroundStyle(bulkSelected ? p.brandBlue : p.fg4)
-                    .frame(width: 30, height: 40)
-            }
-            .buttonStyle(.plain)
+            primaryAction
             Button { model.toggleStar(email.id) } label: {
                 Image(systemName: email.starred ? "star.fill" : "star")
                     .font(.system(size: 14))
@@ -682,11 +676,44 @@ struct GmailRowView: View {
         .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
         .animation(.easeOut(duration: 0.12), value: hovered)
         .contentShape(Rectangle())
+        // Long press selects; Shift-click extends; ⌘-click toggles; once something is
+        // selected a plain click toggles too.
+        .onLongPressGesture(minimumDuration: 0.4) { model.toggleSelect(email.id) }
         .onTapGesture {
-            if model.selectionActive { model.toggleSelect(email.id) } else { model.activate(email.id) }
+            let mods = NSEvent.modifierFlags
+            if mods.contains(.shift) { model.selectRange(to: email.id) }
+            else if mods.contains(.command) || model.selectionActive { model.toggleSelect(email.id) }
+            else { model.activate(email.id) }
         }
         .onHover { hovered = $0 }
         .contextMenu { EmailContextMenu(email: email) }
+    }
+
+    /// Claude-style tile on the left (a tinted veil behind an outline symbol) for the
+    /// row's main action: mark as read when unread, delete when read. In a selection it
+    /// shows the checkmark and toggles the row.
+    private var primaryAction: some View {
+        let (symbol, tint, help): (String, Color, String) =
+            bulkSelected ? ("checkmark", p.fg1, "Deselect")
+            : email.unread ? ("envelope.open", Arcos.clay, "Mark as read")
+            : ("trash", p.isDark ? Color(hex: "C79790") : Color(hex: "9E4C40"), "Delete")
+        return Button {
+            if bulkSelected || model.selectionActive { model.toggleSelect(email.id) }
+            else if email.unread { model.markRead(email.id) }
+            else { model.delete(email.id) }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: bulkSelected ? .semibold : .regular))
+                .foregroundStyle(tint)
+                .frame(width: 26, height: 26)
+                .background(bulkSelected ? Arcos.current(p) : tint.opacity(p.isDark ? 0.2 : 0.12),
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .shadow(color: bulkSelected ? Arcos.currentShadow : .clear, radius: 1.5, y: 0.5)
+                .frame(width: 34, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     private var rowBackground: Color {
