@@ -133,7 +133,7 @@ private struct ReaderContent: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                PrimaryToolbarButton(icon: "check", label: "Done", kbd: "H") { model.markDone() }
+                PrimaryToolbarButton(icon: "archive", label: "Archive", kbd: "E") { model.archive() }
                 PrimaryToolbarButton(icon: "replyAll", label: "Reply all", kbd: "A") { model.replyAll() }
             }
             Button { model.toggleStar(email.id) } label: {

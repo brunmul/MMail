@@ -64,7 +64,6 @@ enum SampleData {
         Folder(id: "inbox", name: "Inbox", shortcut: "g i"),
         Folder(id: "starred", name: "Starred", shortcut: "g s"),
         Folder(id: "snoozed", name: "Snoozed", shortcut: "g z"),
-        Folder(id: "done", name: "Done", shortcut: "g e"),
         Folder(id: "archive", name: "Archive", shortcut: nil),
         Folder(id: "sent", name: "Sent", shortcut: "g t"),
         Folder(id: "outbox", name: "Outbox", shortcut: nil),

@@ -437,7 +437,7 @@ final class AppModel: ObservableObject {
     func selectAllVisible() { selectedIds = Set(filteredEmails.map { $0.id }) }
 
     func bulkArchive() { bulkTriage(localFolder: "archive", serverFolder: "archive", verb: "Archived") }
-    func bulkDone() { bulkTriage(localFolder: "done", serverFolder: "archive", verb: "Marked done") }
+    func bulkDone() { bulkArchive() }   // "Done" was merged into Archive
 
     func bulkDelete() {
         let ids = selectedIds
@@ -528,14 +528,9 @@ final class AppModel: ObservableObject {
         }
         moveTo(target, dest: "archive", verb: "Archived")
     }
-    func markDone(_ id: String? = nil) {
-        let target = id ?? selectedId
-        if let target, let e = emails.first(where: { $0.id == target }), isRealAccount(e.account),
-           mailboxName(e.account, "archive") != nil {
-            realMove(e, to: "archive")
-        }
-        moveTo(target, dest: "done", verb: "Marked done")
-    }
+    /// "Done" was merged into Archive: on a real account both went to the server's
+    /// Archive mailbox, so a separate Done folder only hid mail.
+    func markDone(_ id: String? = nil) { archive(id) }
     func delete(_ id: String? = nil) {
         let target = id ?? selectedId
         if let target, let e = emails.first(where: { $0.id == target }), isRealAccount(e.account) {
@@ -601,11 +596,20 @@ final class AppModel: ObservableObject {
         return out
     }
 
-    func markUnread(_ id: String? = nil) {
+    func markUnread(_ id: String? = nil) { setRead(id, false) }
+    func markRead(_ id: String? = nil) { setRead(id, true) }
+
+    /// Read ↔ unread, whichever the message is not.
+    func toggleRead(_ id: String? = nil) {
+        guard let id = id ?? selectedId, let e = emails.first(where: { $0.id == id }) else { return }
+        setRead(id, e.unread)
+    }
+
+    private func setRead(_ id: String?, _ read: Bool) {
         guard let id = id ?? selectedId, let i = emails.firstIndex(where: { $0.id == id }) else { return }
-        emails[i].unread = true
-        applyRealFlag(emails[i], .seen, add: false)
-        showToast("Marked as unread")
+        emails[i].unread = !read
+        applyRealFlag(emails[i], .seen, add: read)
+        showToast(read ? "Marked as read" : "Marked as unread")
     }
 
     /// Handle an Archive/Trash/tap action from a new-mail notification.
@@ -1313,15 +1317,13 @@ final class AppModel: ObservableObject {
             Command(id: "replyAll", group: "Mail", label: "Reply all", icon: "replyAll", shortcut: "A") { [weak self] in self?.replyAll() },
             Command(id: "forward", group: "Mail", label: "Forward", icon: "forward", shortcut: "F") { [weak self] in self?.forward() },
             Command(id: "archive", group: "Triage", label: "Archive", icon: "archive", shortcut: "E") { [weak self] in self?.archive() },
-            Command(id: "done", group: "Triage", label: "Mark as done", icon: "check", shortcut: "H") { [weak self] in self?.markDone() },
             Command(id: "snooze", group: "Triage", label: "Snooze", icon: "clock", shortcut: "Z") { [weak self] in self?.snooze() },
             Command(id: "delete", group: "Triage", label: "Delete", icon: "trash", shortcut: "#") { [weak self] in self?.delete() },
-            Command(id: "unread", group: "Triage", label: "Mark unread", icon: "mail", shortcut: "U") { [weak self] in self?.markUnread() },
+            Command(id: "unread", group: "Triage", label: "Mark read / unread", icon: "mail", shortcut: "U") { [weak self] in self?.toggleRead() },
             Command(id: "star", group: "Triage", label: "Star / unstar", icon: "star", shortcut: "S") { [weak self] in self?.toggleStar() },
             Command(id: "go-inbox", group: "Go to", label: "Go to Inbox", icon: "inbox", shortcut: "G I") { [weak self] in self?.setFolder("inbox") },
             Command(id: "go-starred", group: "Go to", label: "Go to Starred", icon: "star", shortcut: "G S") { [weak self] in self?.setFolder("starred") },
             Command(id: "go-snoozed", group: "Go to", label: "Go to Snoozed", icon: "clock", shortcut: "G Z") { [weak self] in self?.setFolder("snoozed") },
-            Command(id: "go-done", group: "Go to", label: "Go to Done", icon: "done", shortcut: "G E") { [weak self] in self?.setFolder("done") },
             Command(id: "go-sent", group: "Go to", label: "Go to Sent", icon: "send", shortcut: "G T") { [weak self] in self?.setFolder("sent") },
             Command(id: "go-drafts", group: "Go to", label: "Go to Drafts", icon: "draft", shortcut: "G D") { [weak self] in self?.setFolder("drafts") },
             Command(id: "search", group: "App", label: "Search mail", icon: "search", shortcut: "/") { [weak self] in self?.activateSearch() },
@@ -2775,7 +2777,7 @@ final class AppModel: ObservableObject {
 
         // g-prefix
         if pendingG {
-            let dest = ["i": "inbox", "z": "snoozed", "e": "done", "t": "sent", "s": "starred", "d": "drafts"][lower]
+            let dest = ["i": "inbox", "z": "snoozed", "e": "archive", "t": "sent", "s": "starred", "d": "drafts"][lower]
             if let d = dest { setFolder(d) }
             pendingG = false
             return true
@@ -2793,9 +2795,8 @@ final class AppModel: ObservableObject {
         case "j": if listActive { navigate(1) }; return listActive
         case "k": if listActive { navigate(-1) }; return listActive
         case "e": if listActive { archive() }; return listActive
-        case "h": if listActive { markDone() }; return listActive
         case "#": if listActive { delete() }; return listActive
-        case "u": if listActive { markUnread() }; return listActive
+        case "u": if listActive { toggleRead() }; return listActive
         case "s": if listActive { toggleStar() }; return listActive
         case "z": if listActive { snooze() }; return listActive
         case "c": startCompose(); return true

@@ -15,14 +15,13 @@ struct HelpSheetView: View {
             Shortcut(label: "Back to list", keys: ["esc"]),
             Shortcut(label: "Go to inbox", keys: ["G", "I"]),
             Shortcut(label: "Go to snoozed", keys: ["G", "Z"]),
-            Shortcut(label: "Go to done", keys: ["G", "E"]),
+            Shortcut(label: "Go to archive", keys: ["G", "E"]),
             Shortcut(label: "Go to sent", keys: ["G", "T"])
         ]),
         Section(title: "Triage", items: [
-            Shortcut(label: "Mark as done", keys: ["H"]),
             Shortcut(label: "Archive", keys: ["E"]),
             Shortcut(label: "Delete", keys: ["#"]),
-            Shortcut(label: "Mark unread", keys: ["U"]),
+            Shortcut(label: "Mark read / unread", keys: ["U"]),
             Shortcut(label: "Star", keys: ["S"]),
             Shortcut(label: "Snooze", keys: ["Z"])
         ]),

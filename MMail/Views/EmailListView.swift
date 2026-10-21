@@ -129,7 +129,6 @@ struct EmailListView: View {
                 Text("Select all").font(.system(size: 11.5)).foregroundStyle(p.brandBlue)
             }.buttonStyle(.plain)
             Spacer()
-            bulkButton("check", "Done") { model.bulkDone() }
             bulkButton("archive", "Archive") { model.bulkArchive() }
             let moveAcct = model.currentAccount == "all"
                 ? (model.emails.first { model.selectedIds.contains($0.id) }?.account ?? "")
@@ -481,7 +480,6 @@ struct EmailRowView: View {
                 VStack {
                     HStack(spacing: 2) {
                         rowAction(email.starred ? "star.fill" : "star", help: "Star (S)") { model.toggleStar(email.id) }
-                        rowAction("check", help: "Mark as done (H)") { model.markDone(email.id) }
                         rowAction("archive", help: "Archive (E)") { model.archive(email.id) }
                     }
                     Spacer()
@@ -547,17 +545,14 @@ struct EmailContextMenu: View {
             Label("Forward", systemImage: "arrowshape.turn.up.right")
         }
         Divider()
-        Button { model.markDone(email.id) } label: {
-            Label("Mark as done", systemImage: "checkmark.circle")
-        }
         Button { model.archive(email.id) } label: {
             Label("Archive", systemImage: "archivebox")
         }
         Button { model.toggleStar(email.id) } label: {
             Label(email.starred ? "Unstar" : "Star", systemImage: email.starred ? "star.slash" : "star")
         }
-        Button { model.markUnread(email.id) } label: {
-            Label(email.unread ? "Mark as read" : "Mark as unread", systemImage: "envelope.badge")
+        Button { model.toggleRead(email.id) } label: {
+            Label(email.unread ? "Mark as read" : "Mark as unread", systemImage: email.unread ? "envelope.open" : "envelope.badge")
         }
         Button { model.snooze(email.id) } label: {
             Label("Snooze until tomorrow", systemImage: "clock")
@@ -662,7 +657,7 @@ struct GmailRowView: View {
                     hoverAction("archive", "Archive") { model.archive(email.id) }
                     hoverAction("trash", "Delete") { model.delete(email.id) }
                     hoverAction("mail", email.unread ? "Mark as read" : "Mark as unread") {
-                        if email.unread { markRead() } else { model.markUnread(email.id) }
+                        model.toggleRead(email.id)
                     }
                     hoverAction("clock", "Snooze") { model.snooze(email.id) }
                 }
@@ -698,12 +693,6 @@ struct GmailRowView: View {
         // No orange "active" wash on the current row; only checked rows get a neutral fill.
         if bulkSelected { return Arcos.chipFill(p) }
         return email.unread ? p.bg1 : p.readRow
-    }
-
-    private func markRead() {
-        guard let i = model.emails.firstIndex(where: { $0.id == email.id }) else { return }
-        model.emails[i].unread = false
-        model.applyRealFlag(model.emails[i], .seen, add: true)
     }
 
     private func hoverAction(_ icon: String, _ help: String, action: @escaping () -> Void) -> some View {
