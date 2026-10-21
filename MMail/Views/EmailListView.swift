@@ -707,7 +707,8 @@ struct GmailRowView: View {
         // Same hover as the sidebar: a soft rounded fill, no shadow, no bold.
         .background(rowBackground)
         .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .fill(hovered && !bulkSelected ? Arcos.hoverFill(p) : .clear)
+            // The keyboard's current row gets the same soft fill as a hovered one.
+            .fill((hovered || (model.keyboardNav && keyboardSelected)) && !bulkSelected ? Arcos.hoverFill(p) : .clear)
             .padding(.horizontal, 6).padding(.vertical, 2)
             .allowsHitTesting(false))
         .overlay(Rectangle().fill(p.border).frame(height: 1), alignment: .bottom)
@@ -724,7 +725,8 @@ struct GmailRowView: View {
         }
         .onHover { h in
             hovered = h
-            if h { model.hoveredId = email.id } else if model.hoveredId == email.id { model.hoveredId = nil }
+            if h { model.hoveredId = email.id; model.keyboardNav = false }
+            else if model.hoveredId == email.id { model.hoveredId = nil }
         }
         .contextMenu { EmailContextMenu(email: email) }
     }

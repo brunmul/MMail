@@ -115,6 +115,7 @@ private struct ReaderContent: View {
                     HStack(spacing: 4) {
                         Icon(name: "chevronLeft", size: 13)
                         Text("Back").font(.system(size: 12.5, weight: .medium))
+                        Kbd("esc")
                     }
                     .foregroundStyle(p.fg2).padding(.horizontal, 8).frame(height: 30)
                     .contentShape(Rectangle())

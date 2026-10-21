@@ -187,6 +187,7 @@ final class AppModel: ObservableObject {
     @Published var snoozedUntil: [String: Date] = [:]   // "accountId#uid" -> wake date
     @Published var pinnedIds: Set<String> = []           // pinned to the top of the inbox
     var hoveredId: String?                               // list row under the pointer (for U)
+    @Published var keyboardNav = false                   // last move was by keyboard: show the current row
     @Published var downloadingAttachments: Set<String> = []
     /// Live view of the open composer, registered by ComposeView so Claude reads
     /// what is on screen (the composer keeps its edits in local state).
@@ -2806,17 +2807,28 @@ final class AppModel: ObservableObject {
             return false
         }
 
-        // Below: single-key. Don't intercept when typing, an overlay owns focus,
-        // or the user has turned off keyboard (vim) navigation in Settings.
-        if isTyping || anyOverlayOpen || onboarding || !vimNav { return false }
+        if isTyping || anyOverlayOpen || onboarding { return false }
 
+        // Arrows move through the list (in a message opened full-width they scroll it instead).
+        if (event.keyCode == 125 || event.keyCode == 126) && !cmd && !readerFullScreen {
+            keyboardNav = true
+            navigate(event.keyCode == 125 ? 1 : -1)
+            return true
+        }
         // Return: open the selected message full-width when the reading pane is off.
-        if event.keyCode == 36 {
-            if !readingPane && !readerFullScreen && folder != "home" && selectedId != nil {
+        if event.keyCode == 36 || event.keyCode == 76 {
+            if !readingPane && !readerFullScreen && selectedId != nil {
                 readerFullScreen = true; return true
             }
             return false
         }
+        // Delete / Backspace: move the current message to the trash.
+        if (event.keyCode == 51 || event.keyCode == 117) && !cmd && selectedId != nil {
+            delete(); return true
+        }
+
+        // Below: single-key letters, unless keyboard (vim) navigation is off in Settings.
+        if !vimNav { return false }
 
         // ? help
         if chars == "?" { help = true; return true }
@@ -2840,8 +2852,8 @@ final class AppModel: ObservableObject {
         let listActive = folder != "home"
 
         switch chars {
-        case "j": if listActive { navigate(1) }; return listActive
-        case "k": if listActive { navigate(-1) }; return listActive
+        case "j": if listActive { keyboardNav = true; navigate(1) }; return listActive
+        case "k": if listActive { keyboardNav = true; navigate(-1) }; return listActive
         case "e": if listActive { archive() }; return listActive
         case "#": if listActive { delete() }; return listActive
         case "u": if listActive { primaryAction() }; return listActive
