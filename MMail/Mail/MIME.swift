@@ -195,6 +195,92 @@ enum MIME {
         }
     }
 
+    // MARK: iCalendar reply (RSVP)
+
+    /// Builds the iTIP REPLY (RFC 5546) that tells the organizer we accepted, declined or
+    /// might come — what Gmail sends from its Yes / Maybe / No buttons. Returns the
+    /// calendar text and the organizer's address, or nil if the invite lacks UID / ORGANIZER.
+    static func icsReply(to raw: String, attendee: String, attendeeName: String?, partstat: String)
+        -> (ics: String, organizer: String)? {
+        let unfolded = raw.replacingOccurrences(of: "\r\n ", with: "")
+            .replacingOccurrences(of: "\r\n\t", with: "")
+            .replacingOccurrences(of: "\n ", with: "")
+            .replacingOccurrences(of: "\n\t", with: "")
+        // "\r\n" is one Character in Swift, so split on isNewline rather than "\n" / "\r".
+        let lines = unfolded.split(whereSeparator: { $0.isNewline }).map(String.init)
+        var timezones: [String] = [], inTZ = false, inEvent = false
+        var keep: [String] = [], uid: String?, organizer: String?, sequence = "0"
+        for line in lines {
+            let upper = line.uppercased()
+            if upper == "BEGIN:VTIMEZONE" { inTZ = true }
+            if inTZ { timezones.append(line); if upper == "END:VTIMEZONE" { inTZ = false }; continue }
+            if upper == "BEGIN:VEVENT" { inEvent = true; continue }
+            if upper == "END:VEVENT" { break }
+            guard inEvent, let colon = line.firstIndex(of: ":") else { continue }
+            let key = line[..<colon].split(separator: ";").first.map { $0.uppercased() } ?? ""
+            let value = String(line[line.index(after: colon)...])
+            switch key {
+            case "UID": uid = value; keep.append(line)
+            case "ORGANIZER":
+                organizer = value.replacingOccurrences(of: "mailto:", with: "", options: .caseInsensitive)
+                keep.append(line)
+            case "SEQUENCE": sequence = value
+            case "DTSTART", "DTEND", "SUMMARY", "RECURRENCE-ID", "LOCATION": keep.append(line)
+            default: break
+            }
+        }
+        guard uid != nil, let organizer, organizer.contains("@") else { return nil }
+        let stamp: String = {
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone(identifier: "UTC"); f.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+            return f.string(from: Date())
+        }()
+        let cn = attendeeName.map { ";CN=\"\($0.replacingOccurrences(of: "\"", with: ""))\"" } ?? ""
+        var out = ["BEGIN:VCALENDAR", "PRODID:-//MMail//EN", "VERSION:2.0", "CALSCALE:GREGORIAN", "METHOD:REPLY"]
+        out += timezones
+        out += ["BEGIN:VEVENT"] + keep + [
+            "DTSTAMP:\(stamp)",
+            "SEQUENCE:\(sequence)",
+            "ATTENDEE\(cn);PARTSTAT=\(partstat);RSVP=FALSE:mailto:\(attendee)",
+            "END:VEVENT", "END:VCALENDAR"]
+        return (out.joined(separator: "\r\n") + "\r\n", organizer)
+    }
+
+    /// The RSVP email: a short text part plus the text/calendar REPLY.
+    static func buildInviteReply(from: String, fromName: String?, to: String, subject: String,
+                                 text: String, ics: String) -> String {
+        let df = DateFormatter(); df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
+        let domain = from.split(separator: "@").last.map(String.init) ?? "localhost"
+        let boundary = "mmail-\(UUID().uuidString)"
+        let b64: (String) -> String = {
+            Data($0.utf8).base64EncodedString(options: [.lineLength76Characters, .endLineWithCarriageReturn])
+        }
+        let fromHeader = (fromName?.isEmpty == false) ? "\(encodeWordIfNeeded(fromName!)) <\(from)>" : from
+        return [
+            "From: \(fromHeader)",
+            "To: \(to)",
+            "Subject: \(encodeWordIfNeeded(subject))",
+            "Date: \(df.string(from: Date()))",
+            "Message-ID: <\(UUID().uuidString)@\(domain)>",
+            "MIME-Version: 1.0",
+            "Content-Type: multipart/alternative; boundary=\"\(boundary)\"",
+            "",
+            "--\(boundary)",
+            "Content-Type: text/plain; charset=UTF-8",
+            "Content-Transfer-Encoding: base64",
+            "",
+            b64(text),
+            "--\(boundary)",
+            "Content-Type: text/calendar; charset=UTF-8; method=REPLY",
+            "Content-Transfer-Encoding: base64",
+            "",
+            b64(ics),
+            "--\(boundary)--",
+            ""
+        ].joined(separator: "\r\n")
+    }
+
     // MARK: iCalendar (.ics) parsing
 
     static func parseICS(_ ics: String) -> CalendarEvent? {
@@ -205,7 +291,7 @@ enum MIME {
             .replacingOccurrences(of: "\n\t", with: "")
         var summary = "", location = "", organizer = ""
         var start: Date?, end: Date?
-        for rawLine in unfolded.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
+        for rawLine in unfolded.split(whereSeparator: { $0.isNewline }) {
             let line = String(rawLine)
             guard let colon = line.firstIndex(of: ":") else { continue }
             let keyPart = String(line[line.startIndex..<colon])

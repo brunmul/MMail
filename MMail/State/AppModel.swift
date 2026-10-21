@@ -186,6 +186,7 @@ final class AppModel: ObservableObject {
     @Published var sending: [SendingItem] = []   // in-flight sends (Outbox progress)
     @Published var snoozedUntil: [String: Date] = [:]   // "accountId#uid" -> wake date
     @Published var pinnedIds: Set<String> = []           // pinned to the top of the inbox
+    @Published var inviteReplies: [String: String] = [:] // email id -> ACCEPTED / TENTATIVE / DECLINED
     var hoveredId: String?                               // list row under the pointer (for U)
     @Published var keyboardNav = false                   // last move was by keyboard: show the current row
     @Published var downloadingAttachments: Set<String> = []
@@ -195,6 +196,7 @@ final class AppModel: ObservableObject {
     private let kScheduled = "mmail.scheduled"
     private let kSnoozed = "mmail.snoozed"
     private let kPinned = "mmail.pinned"
+    private let kInviteReplies = "mmail.inviteReplies"
     private var pollTimer: Timer?
     private var pollCount = 0
     private var imapSessions: [String: IMAPSession] = [:]
@@ -276,6 +278,7 @@ final class AppModel: ObservableObject {
         if let data = d.data(forKey: kSnoozed),
            let decoded = try? JSONDecoder().decode([String: Date].self, from: data) { snoozedUntil = decoded }
         pinnedIds = Set(d.stringArray(forKey: kPinned) ?? [])
+        inviteReplies = (d.dictionary(forKey: kInviteReplies) as? [String: String]) ?? [:]
         // Welcome shows on first launch and whenever no account is connected.
         onboarding = accounts.isEmpty
         purgeSeedData()
@@ -926,6 +929,39 @@ final class AppModel: ObservableObject {
     }
 
     /// Write the invite's .ics to a temp file and hand it to Calendar.app.
+    /// Gmail-style RSVP: email the organizer an iCalendar REPLY straight away, no calendar app.
+    /// `partstat` is ACCEPTED, TENTATIVE or DECLINED.
+    func respondToInvite(_ email: Email, _ event: CalendarEvent, partstat: String) {
+        guard let cfg = config(for: email.account), let pw = cfg.smtpPassword else {
+            showToast("Add this account's password to reply to invites"); return
+        }
+        let name = accountsById[cfg.id]?.name
+        guard let reply = MIME.icsReply(to: event.raw, attendee: cfg.email, attendeeName: name, partstat: partstat) else {
+            showToast("This invite can't be answered by email"); return
+        }
+        let verb = ["ACCEPTED": "Accepted", "TENTATIVE": "Tentatively accepted", "DECLINED": "Declined"][partstat] ?? "Replied"
+        let who = name ?? cfg.email
+        let text = "\(who) \(verb.lowercased()) this invitation: \(event.summary)"
+        let message = MIME.buildInviteReply(from: cfg.email, fromName: name, to: reply.organizer,
+                                            subject: "\(verb): \(event.summary)", text: text, ics: reply.ics)
+        let previous = inviteReplies[email.id]
+        inviteReplies[email.id] = partstat
+        UserDefaults.standard.set(inviteReplies, forKey: kInviteReplies)
+        Task {
+            do {
+                try await SMTPService(config: cfg, password: pw)
+                    .send(from: cfg.email, fromName: name, recipients: [reply.organizer], message: message)
+                await MainActor.run { self.showToast("\(verb) · sent to \(reply.organizer)") }
+            } catch {
+                await MainActor.run {
+                    self.inviteReplies[email.id] = previous
+                    UserDefaults.standard.set(self.inviteReplies, forKey: self.kInviteReplies)
+                    self.showToast("Couldn't send your reply: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     func addToCalendar(_ event: CalendarEvent) {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("MMail-invite-\(UUID().uuidString).ics")

@@ -351,14 +351,19 @@ private struct ReaderContent: View {
             if let loc = ev.location {
                 HStack(spacing: 6) { Icon(name: "home", size: 11).foregroundStyle(p.fg3); Text(loc).font(.system(size: 12.5)).foregroundStyle(p.fg3) }
             }
-            Button { model.addToCalendar(ev) } label: {
-                HStack(spacing: 6) {
-                    Icon(name: "check", size: 12); Text("Add to Calendar").font(.system(size: 12.5, weight: .semibold))
+            // Gmail-style RSVP: answering emails the organizer directly.
+            HStack(spacing: 8) {
+                Text("Going?").font(.system(size: 12.5)).foregroundStyle(p.fg2)
+                rsvpButton(ev, "ACCEPTED", "Yes")
+                rsvpButton(ev, "TENTATIVE", "Maybe")
+                rsvpButton(ev, "DECLINED", "No")
+                Spacer(minLength: 8)
+                Button { model.addToCalendar(ev) } label: {
+                    Text("Open in Calendar").font(.system(size: 12)).foregroundStyle(p.fg3)
                 }
-                .foregroundStyle(.white).padding(.horizontal, 12).frame(height: 28)
-                .background(p.brandBlue).clipShape(Capsule())
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain).padding(.top, 2)
+            .padding(.top, 2)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -366,6 +371,24 @@ private struct ReaderContent: View {
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(p.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.top, 16)
+    }
+
+    private func rsvpButton(_ ev: CalendarEvent, _ partstat: String, _ label: String) -> some View {
+        let chosen = model.inviteReplies[email.id] == partstat
+        return Button { model.respondToInvite(email, ev, partstat: partstat) } label: {
+            HStack(spacing: 5) {
+                if chosen { Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold)) }
+                Text(label).font(.system(size: 12.5, weight: .medium))
+            }
+            .foregroundStyle(p.fg1)
+            .padding(.horizontal, 12).frame(height: 28)
+            .background(chosen ? Arcos.current(p) : Color.clear, in: Capsule())
+            .overlay(Capsule().strokeBorder(chosen ? Color.clear : p.borderStrong, lineWidth: 1))
+            .shadow(color: chosen ? Arcos.currentShadow : .clear, radius: 1.5, y: 0.5)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(partstat == "ACCEPTED" ? "Accept and tell the organizer" : partstat == "DECLINED" ? "Decline and tell the organizer" : "Reply maybe")
     }
 
     private func eventWhen(_ start: Date, _ end: Date?) -> String {
