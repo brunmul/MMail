@@ -380,13 +380,22 @@ enum MIME {
 
     private static func stripHTML(_ html: String) -> String {
         var text = html
+        // Drop invisible blocks first: their CSS and comments otherwise end up in the
+        // preview ("td, th, div { font-family: … }", "#outlook a { … }").
+        for pattern in ["(?is)<!--.*?-->", "(?is)<(style|script|head|title)\\b[^>]*>.*?</\\1\\s*>"] {
+            text = text.replacingOccurrences(of: pattern, with: " ", options: .regularExpression)
+        }
         for (tag, repl) in [("<br>", "\n"), ("<br/>", "\n"), ("<br />", "\n"), ("</p>", "\n\n"), ("</div>", "\n")] {
             text = text.replacingOccurrences(of: tag, with: repl, options: .caseInsensitive)
         }
         text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
         let entities = ["&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#39;": "'"]
         for (e, r) in entities { text = text.replacingOccurrences(of: e, with: r) }
-        let lines = text.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
-        return lines.joined(separator: "\n").replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        let lines = text.split(separator: "\n")
+            .map { $0.replacingOccurrences(of: "[ \\t]{2,}", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces) }
+        return lines.joined(separator: "\n")
+            .replacingOccurrences(of: "\n{3,}", with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
