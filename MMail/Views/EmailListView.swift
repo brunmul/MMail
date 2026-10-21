@@ -263,6 +263,9 @@ struct EmailListView: View {
                             }
                         }
                     }
+                    // Rows keep their section while the pointer is over the list.
+                    .onHover { inside in inside ? model.freezeSections() : model.unfreezeSections() }
+                    .onDisappear { model.unfreezeSections() }
                     .onChange(of: model.selectedId) { _, id in
                         if let id { withAnimation { proxy.scrollTo(id, anchor: .center) } }
                     }
@@ -272,14 +275,11 @@ struct EmailListView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Pinned, then Unread (All only), then the rest. A lone section gets no title.
+    /// Pinned, then Unread (All only), then the rest — from the model's single ordering.
+    /// A lone section gets no title.
     private func listSections(_ visible: [Email]) -> [(String?, [Email])] {
-        let pinned = model.showsPinnedSection ? visible.filter { model.isPinned($0.id) } : []
-        let rest = pinned.isEmpty ? visible : visible.filter { !model.isPinned($0.id) }
-        // Mail just marked read stays in the Unread section until the view changes.
-        let inUnread: (Email) -> Bool = { $0.unread || model.justRead.contains($0.id) }
-        let unread = model.showsUnreadSection ? rest.filter(inUnread) : []
-        let others = unread.isEmpty ? rest : rest.filter { !inUnread($0) }
+        let groups = Dictionary(grouping: visible) { model.section(of: $0) }
+        let pinned = groups[.pinned] ?? [], unread = groups[.unread] ?? [], others = groups[.rest] ?? []
         var sections: [(String?, [Email])] = []
         if !pinned.isEmpty { sections.append(("Pinned", pinned)) }
         if !unread.isEmpty { sections.append(("Unread", unread)) }

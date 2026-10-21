@@ -107,7 +107,7 @@ final class AppModel: ObservableObject {
     @Published var folder: String = "inbox"   // Gmail opens on the inbox
     @Published var emails: [Email] = []
     @Published var selectedId: String?
-    @Published var filter: InboxFilter = .all { didSet { justRead.removeAll() } }
+    @Published var filter: InboxFilter = .all { didSet { frozenSections = nil } }
     // When the reading pane is off, this opens the selected message full-width.
     @Published var readerFullScreen = false
     // Bulk selection (checkboxes in the list).
@@ -188,9 +188,15 @@ final class AppModel: ObservableObject {
     @Published var pinnedIds: Set<String> = []           // pinned to the top of the inbox
     @Published var inviteReplies: [String: String] = [:] // email id -> ACCEPTED / TENTATIVE / DECLINED
     var hoveredId: String?                               // list row under the pointer (for U)
-    /// Mail just marked read from the list stays in the Unread section until the view
-    /// changes, so rows don't jump out from under the pointer.
-    @Published var justRead: Set<String> = []
+    /// Inbox sections, top to bottom.
+    enum ListSection: Int { case pinned, unread, rest }
+    /// While the pointer is over the list each row keeps the section it had when the
+    /// pointer came in, so marking read or pinning never moves rows under the pointer.
+    /// Rows settle into their new section once the pointer leaves the list.
+    @Published private(set) var frozenSections: [String: ListSection]? {
+        didSet { if frozenSections == nil { frozenUnreadIds = [] } }
+    }
+    private var frozenUnreadIds: Set<String> = []
     /// When a read / star change was last made here, so a refresh racing the server
     /// update doesn't flip it back.
     private var localFlagEdits: [String: Date] = [:]
@@ -352,28 +358,37 @@ final class AppModel: ObservableObject {
         if folder != "inbox" { return visibleEmails }
         let list: [Email]
         switch filter {
-        case .unread: list = visibleEmails.filter { $0.unread }
+        // Mail read while the pointer is on the list stays until the pointer leaves.
+        case .unread: list = visibleEmails.filter { $0.unread || frozenUnreadIds.contains($0.id) }
         case .people: list = visibleEmails.filter { SampleData.senders[$0.from]?.org != .bot }
         case .updates: list = visibleEmails.filter { SampleData.senders[$0.from]?.org == .bot }
         case .all: list = visibleEmails
         }
-        // Pinned mail heads the inbox, then (in All) unread mail, each in its own section.
-        let pinned = list.filter { pinnedIds.contains($0.id) }
-        let rest = list.filter { !pinnedIds.contains($0.id) }
-        guard filter == .all else { return pinned + rest }
-        let unreadNow: (Email) -> Bool = { $0.unread || self.justRead.contains($0.id) }
-        return pinned + rest.filter(unreadNow) + rest.filter { !unreadNow($0) }
+        // Pinned mail heads the inbox, then (in All) unread mail: one ordering, shared
+        // by the list's sections, J/K and the arrows. Stable within each section.
+        return list.enumerated()
+            .sorted { (section(of: $0.element).rawValue, $0.offset) < (section(of: $1.element).rawValue, $1.offset) }
+            .map(\.element)
     }
 
-    /// All in the inbox shows an "Unread" section under Pinned.
-    var showsUnreadSection: Bool {
-        folder == "inbox" && filter == .all && !searchIsActive && labelFilter == nil
+    /// The section a row shows in right now (frozen while the pointer is over the list).
+    func section(of e: Email) -> ListSection {
+        frozenSections?[e.id] ?? liveSection(of: e)
     }
 
-    /// The inbox shows a "Pinned" section above the rest.
-    var showsPinnedSection: Bool {
-        folder == "inbox" && !searchIsActive && labelFilter == nil && !pinnedIds.isEmpty
+    private func liveSection(of e: Email) -> ListSection {
+        guard folder == "inbox", !searchIsActive, labelFilter == nil else { return .rest }
+        if pinnedIds.contains(e.id) { return .pinned }
+        if filter == .all && e.unread { return .unread }
+        return .rest
     }
+
+    func freezeSections() {
+        frozenUnreadIds = Set(visibleEmails.filter(\.unread).map(\.id))
+        frozenSections = Dictionary(visibleEmails.map { ($0.id, liveSection(of: $0)) }, uniquingKeysWith: { a, _ in a })
+    }
+
+    func unfreezeSections() { frozenSections = nil }
 
     var selectedEmail: Email? {
         filteredEmails.first(where: { $0.id == selectedId }) ?? filteredEmails.first
@@ -657,7 +672,6 @@ final class AppModel: ObservableObject {
 
     private func setRead(_ id: String?, _ read: Bool) {
         guard let id = id ?? selectedId, let i = emails.firstIndex(where: { $0.id == id }) else { return }
-        if read && emails[i].unread { justRead.insert(id) } else if !read { justRead.remove(id) }
         emails[i].unread = !read
         applyRealFlag(emails[i], .seen, add: read)
         showToast(read ? "Marked as read" : "Marked as unread")
@@ -1357,7 +1371,7 @@ final class AppModel: ObservableObject {
 
     func setFolder(_ f: String) {
         folder = f == "home" ? "inbox" : f   // the Home dashboard was removed
-        justRead.removeAll()
+        frozenSections = nil
         labelFilter = nil
         readerFullScreen = false
         clearSelection()
@@ -1523,7 +1537,7 @@ final class AppModel: ObservableObject {
 
     /// Called whenever the selected account changes; refreshes the current folder.
     func didSelectAccount(_ id: String) {
-        justRead.removeAll()
+        frozenSections = nil
         // Home is the cross-account dashboard; only "All inboxes" gets to see
         // it. Switching to a specific account from Home drops the user into
         // that account's inbox.
