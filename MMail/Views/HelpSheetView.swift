@@ -21,7 +21,7 @@ struct HelpSheetView: View {
         Section(title: "Triage", items: [
             Shortcut(label: "Archive", keys: ["E"]),
             Shortcut(label: "Delete", keys: ["#"]),
-            Shortcut(label: "Mark read / unread", keys: ["U"]),
+            Shortcut(label: "Main action: read, pin / unpin", keys: ["U"]),
             Shortcut(label: "Star", keys: ["S"]),
             Shortcut(label: "Snooze", keys: ["Z"])
         ]),

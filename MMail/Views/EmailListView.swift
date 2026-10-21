@@ -722,7 +722,10 @@ struct GmailRowView: View {
             else if mods.contains(.command) || model.selectionActive { model.toggleSelect(email.id) }
             else { model.activate(email.id) }
         }
-        .onHover { hovered = $0 }
+        .onHover { h in
+            hovered = h
+            if h { model.hoveredId = email.id } else if model.hoveredId == email.id { model.hoveredId = nil }
+        }
         .contextMenu { EmailContextMenu(email: email) }
     }
 
@@ -735,13 +738,12 @@ struct GmailRowView: View {
     private var primaryAction: some View {
         let (symbol, tint, help): (String, Color, String) =
             bulkSelected ? ("checkmark", p.fg1, "Deselect")
-            : email.unread ? ("envelope.open", Arcos.clay, "Mark as read")
-            : pinned ? ("pin.fill", slate, "Unpin")
-            : ("pin", slate, "Pin to the top of the inbox")
+            : email.unread ? ("envelope.open", Arcos.clay, "Mark as read (U)")
+            : pinned ? ("pin.fill", slate, "Unpin (U)")
+            : ("pin", slate, "Pin to the top of the inbox (U)")
         return Button {
             if bulkSelected || model.selectionActive { model.toggleSelect(email.id) }
-            else if email.unread { model.markRead(email.id) }
-            else { model.togglePin(email.id) }
+            else { model.primaryAction(email.id) }
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 12, weight: bulkSelected ? .semibold : .regular))

@@ -186,6 +186,7 @@ final class AppModel: ObservableObject {
     @Published var sending: [SendingItem] = []   // in-flight sends (Outbox progress)
     @Published var snoozedUntil: [String: Date] = [:]   // "accountId#uid" -> wake date
     @Published var pinnedIds: Set<String> = []           // pinned to the top of the inbox
+    var hoveredId: String?                               // list row under the pointer (for U)
     @Published var downloadingAttachments: Set<String> = []
     /// Live view of the open composer, registered by ComposeView so Claude reads
     /// what is on screen (the composer keeps its edits in local state).
@@ -1349,7 +1350,7 @@ final class AppModel: ObservableObject {
             Command(id: "archive", group: "Triage", label: "Archive", icon: "archive", shortcut: "E") { [weak self] in self?.archive() },
             Command(id: "snooze", group: "Triage", label: "Snooze", icon: "clock", shortcut: "Z") { [weak self] in self?.snooze() },
             Command(id: "delete", group: "Triage", label: "Delete", icon: "trash", shortcut: "#") { [weak self] in self?.delete() },
-            Command(id: "unread", group: "Triage", label: "Mark read / unread", icon: "mail", shortcut: "U") { [weak self] in self?.toggleRead() },
+            Command(id: "unread", group: "Triage", label: "Mark read / unread", icon: "mail") { [weak self] in self?.toggleRead() },
             Command(id: "star", group: "Triage", label: "Star / unstar", icon: "star", shortcut: "S") { [weak self] in self?.toggleStar() },
             Command(id: "go-inbox", group: "Go to", label: "Go to Inbox", icon: "inbox", shortcut: "G I") { [weak self] in self?.setFolder("inbox") },
             Command(id: "go-starred", group: "Go to", label: "Go to Starred", icon: "star", shortcut: "G S") { [weak self] in self?.setFolder("starred") },
@@ -2672,6 +2673,14 @@ final class AppModel: ObservableObject {
 
     func isPinned(_ id: String) -> Bool { pinnedIds.contains(id) }
 
+    /// A row's main action (its left tile, or U): mark as read when unread, else pin / unpin.
+    /// U acts on the row under the pointer, or the current row when nothing is hovered.
+    func primaryAction(_ id: String? = nil) {
+        guard let id = id ?? hoveredId ?? selectedId, let e = emails.first(where: { $0.id == id })
+                ?? serverSearchResults?.first(where: { $0.id == id }) else { return }
+        if e.unread { markRead(id) } else { togglePin(id) }
+    }
+
     func togglePin(_ id: String) {
         let pin = !pinnedIds.contains(id)
         if pin { pinnedIds.insert(id) } else { pinnedIds.remove(id) }
@@ -2835,7 +2844,7 @@ final class AppModel: ObservableObject {
         case "k": if listActive { navigate(-1) }; return listActive
         case "e": if listActive { archive() }; return listActive
         case "#": if listActive { delete() }; return listActive
-        case "u": if listActive { toggleRead() }; return listActive
+        case "u": if listActive { primaryAction() }; return listActive
         case "s": if listActive { toggleStar() }; return listActive
         case "z": if listActive { snooze() }; return listActive
         case "c": startCompose(); return true
