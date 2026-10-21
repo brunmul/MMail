@@ -109,7 +109,9 @@ final class AppModel: ObservableObject {
     @Published var selectedId: String?
     @Published var filter: InboxFilter = .all { didSet { frozenSections = nil } }
     // When the reading pane is off, this opens the selected message full-width.
-    @Published var readerFullScreen = false
+    @Published var readerFullScreen = false {
+        didSet { if readerFullScreen && !oldValue { markSelectedReadSoon() } }
+    }
     // Bulk selection (checkboxes in the list).
     @Published var selectedIds: Set<String> = []
     var selectionActive: Bool { !selectedIds.isEmpty }
@@ -465,7 +467,9 @@ final class AppModel: ObservableObject {
 
     func select(_ id: String?) {
         selectedId = id
-        markSelectedReadSoon()
+        // Only a message actually shown gets marked read: selecting a row in the list
+        // (arrows, the next row after archiving) must not read it behind your back.
+        if readingPane || readerFullScreen { markSelectedReadSoon() }
         loadBodyIfNeeded()
     }
 
@@ -546,10 +550,11 @@ final class AppModel: ObservableObject {
     func closeFullReader() { readerFullScreen = false }
 
     func markSelectedReadSoon() {
-        guard let e = selectedEmail, e.unread else { return }
-        let id = e.id
+        // The exact selected row, never selectedEmail's fallback to the first message.
+        guard let id = selectedId, let e = emails.first(where: { $0.id == id }), e.unread else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-            guard let self, let i = self.emails.firstIndex(where: { $0.id == id }) else { return }
+            guard let self, self.selectedId == id, self.readingPane || self.readerFullScreen,
+                  let i = self.emails.firstIndex(where: { $0.id == id }) else { return }
             self.emails[i].unread = false
             // Mark seen on the server here (not in loadBodyIfNeeded), so prefetched
             // messages — whose body is already loaded — still get marked read on open.
