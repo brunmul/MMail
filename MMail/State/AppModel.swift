@@ -107,7 +107,7 @@ final class AppModel: ObservableObject {
     @Published var folder: String = "inbox"   // Gmail opens on the inbox
     @Published var emails: [Email] = []
     @Published var selectedId: String?
-    @Published var filter: InboxFilter = .all
+    @Published var filter: InboxFilter = .all { didSet { justRead.removeAll() } }
     // When the reading pane is off, this opens the selected message full-width.
     @Published var readerFullScreen = false
     // Bulk selection (checkboxes in the list).
@@ -188,6 +188,12 @@ final class AppModel: ObservableObject {
     @Published var pinnedIds: Set<String> = []           // pinned to the top of the inbox
     @Published var inviteReplies: [String: String] = [:] // email id -> ACCEPTED / TENTATIVE / DECLINED
     var hoveredId: String?                               // list row under the pointer (for U)
+    /// Mail just marked read from the list stays in the Unread section until the view
+    /// changes, so rows don't jump out from under the pointer.
+    @Published var justRead: Set<String> = []
+    /// When a read / star change was last made here, so a refresh racing the server
+    /// update doesn't flip it back.
+    private var localFlagEdits: [String: Date] = [:]
     @Published var keyboardNav = false                   // last move was by keyboard: show the current row
     @Published var downloadingAttachments: Set<String> = []
     /// Live view of the open composer, registered by ComposeView so Claude reads
@@ -355,7 +361,8 @@ final class AppModel: ObservableObject {
         let pinned = list.filter { pinnedIds.contains($0.id) }
         let rest = list.filter { !pinnedIds.contains($0.id) }
         guard filter == .all else { return pinned + rest }
-        return pinned + rest.filter { $0.unread } + rest.filter { !$0.unread }
+        let unreadNow: (Email) -> Bool = { $0.unread || self.justRead.contains($0.id) }
+        return pinned + rest.filter(unreadNow) + rest.filter { !unreadNow($0) }
     }
 
     /// All in the inbox shows an "Unread" section under Pinned.
@@ -650,6 +657,7 @@ final class AppModel: ObservableObject {
 
     private func setRead(_ id: String?, _ read: Bool) {
         guard let id = id ?? selectedId, let i = emails.firstIndex(where: { $0.id == id }) else { return }
+        if read && emails[i].unread { justRead.insert(id) } else if !read { justRead.remove(id) }
         emails[i].unread = !read
         applyRealFlag(emails[i], .seen, add: read)
         showToast(read ? "Marked as read" : "Marked as unread")
@@ -1349,6 +1357,7 @@ final class AppModel: ObservableObject {
 
     func setFolder(_ f: String) {
         folder = f == "home" ? "inbox" : f   // the Home dashboard was removed
+        justRead.removeAll()
         labelFilter = nil
         readerFullScreen = false
         clearSelection()
@@ -1514,6 +1523,7 @@ final class AppModel: ObservableObject {
 
     /// Called whenever the selected account changes; refreshes the current folder.
     func didSelectAccount(_ id: String) {
+        justRead.removeAll()
         // Home is the cross-account dashboard; only "All inboxes" gets to see
         // it. Switching to a specific account from Home drops the user into
         // that account's inbox.
@@ -2298,13 +2308,20 @@ final class AppModel: ObservableObject {
         if persist { prefetchBodies(accountId, folderId) }
     }
 
+    private func recentlyEdited(_ id: String, _ kind: MailFlagKind) -> Bool {
+        guard let t = localFlagEdits["\(id)#\(kind)"] else { return false }
+        return Date().timeIntervalSince(t) < 60
+    }
+
     /// Apply an incremental refresh: update flags on the loaded window, append
     /// any new messages, persist, and prefetch the newest/starred bodies.
     private func mergeIncremental(_ sync: IMAPFolderSync, accountId: String, folderId: String) {
         for (uid, fs) in sync.flags {
             if let i = emails.firstIndex(where: { $0.account == accountId && $0.folder == folderId && $0.uid == uid }) {
-                emails[i].unread = !fs.seen
-                emails[i].starred = fs.flagged
+                // Keep a change made here in the last minute: the server may not have it yet.
+                let id = emails[i].id
+                if !recentlyEdited(id, .seen) { emails[i].unread = !fs.seen }
+                if !recentlyEdited(id, .flagged) { emails[i].starred = fs.flagged }
                 emails[i].labels = fs.keywords.map { $0.lowercased() }
             }
         }
@@ -2628,6 +2645,7 @@ final class AppModel: ObservableObject {
 
     func applyRealFlag(_ email: Email, _ kind: MailFlagKind, add: Bool) {
         guard isRealAccount(email.account), let uid = email.uid, let session = session(for: email.account) else { return }
+        if kind != .deleted { localFlagEdits["\(email.id)#\(kind)"] = Date() }
         let box = mailboxName(email.account, email.folder) ?? "INBOX"
         Task {
             try? await session.store(mailbox: box, uid: uid, kind, add: add)

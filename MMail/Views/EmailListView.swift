@@ -276,8 +276,10 @@ struct EmailListView: View {
     private func listSections(_ visible: [Email]) -> [(String?, [Email])] {
         let pinned = model.showsPinnedSection ? visible.filter { model.isPinned($0.id) } : []
         let rest = pinned.isEmpty ? visible : visible.filter { !model.isPinned($0.id) }
-        let unread = model.showsUnreadSection ? rest.filter { $0.unread } : []
-        let others = unread.isEmpty ? rest : rest.filter { !$0.unread }
+        // Mail just marked read stays in the Unread section until the view changes.
+        let inUnread: (Email) -> Bool = { $0.unread || model.justRead.contains($0.id) }
+        let unread = model.showsUnreadSection ? rest.filter(inUnread) : []
+        let others = unread.isEmpty ? rest : rest.filter { !inUnread($0) }
         var sections: [(String?, [Email])] = []
         if !pinned.isEmpty { sections.append(("Pinned", pinned)) }
         if !unread.isEmpty { sections.append(("Unread", unread)) }
