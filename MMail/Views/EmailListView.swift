@@ -94,6 +94,19 @@ struct EmailListView: View {
                         .lineLimit(1)
                         .padding(.leading, 8)
                 }
+                if isSearch {
+                    Button { model.dismissSearch() } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark").font(.system(size: 9, weight: .semibold))
+                            Text("Clear").font(.system(size: 12))
+                        }
+                        .foregroundStyle(p.fg2)
+                        .padding(.horizontal, 8).frame(height: 22)
+                        .background(Arcos.chipFill(p), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear search (esc)")
+                }
                 if model.searching {
                     ProgressView().controlSize(.small).scaleEffect(0.7)
                 }

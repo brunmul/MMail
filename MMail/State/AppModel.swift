@@ -436,6 +436,10 @@ final class AppModel: ObservableObject {
 
     /// A row tap: select, and when the reading pane is off, open the full reader.
     func activate(_ id: String) {
+        // A search result may come from the disk cache or the server, outside the loaded mail.
+        if !emails.contains(where: { $0.id == id }), let hit = serverSearchResults?.first(where: { $0.id == id }) {
+            emails.append(hit)
+        }
         select(id)
         if !readingPane { readerFullScreen = true }
     }
@@ -2041,7 +2045,7 @@ final class AppModel: ObservableObject {
         guard !q.isEmpty else { return }
         searchActive = true
         serverSearchResults = localSearch(q)   // instant offline results from cache
-        searchModalOpen = true
+        // Results show in the normal mail list (no pop-up), until the search is cleared.
         runServerSearch()                        // augment with server-side matches
     }
 
@@ -2155,7 +2159,6 @@ final class AppModel: ObservableObject {
         searchQuery = describeAdvanced(f)
         searching = true
         serverSearchResults = []
-        searchModalOpen = true
         let fld = folder == "home" ? "inbox" : folder
         Task {
             var results: [Email] = []
@@ -2788,8 +2791,9 @@ final class AppModel: ObservableObject {
             if searchModalOpen { dismissSearch(); return true }
             if anyOverlayOpen { closeOverlays(); return true }
             if selectionActive { clearSelection(); return true }
-            if searchActive { searchActive = false; searchQuery = ""; return true }
+            // From a result opened full-width, Escape goes back to the results first.
             if readerFullScreen { readerFullScreen = false; return true }
+            if searchActive { dismissSearch(); return true }
             return false
         }
 
