@@ -185,12 +185,14 @@ final class AppModel: ObservableObject {
     @Published var scheduled: [ScheduledSend] = []
     @Published var sending: [SendingItem] = []   // in-flight sends (Outbox progress)
     @Published var snoozedUntil: [String: Date] = [:]   // "accountId#uid" -> wake date
+    @Published var pinnedIds: Set<String> = []           // pinned to the top of the inbox
     @Published var downloadingAttachments: Set<String> = []
     /// Live view of the open composer, registered by ComposeView so Claude reads
     /// what is on screen (the composer keeps its edits in local state).
     var composeSnapshot: (id: UUID, read: () -> ComposeDraft)?
     private let kScheduled = "mmail.scheduled"
     private let kSnoozed = "mmail.snoozed"
+    private let kPinned = "mmail.pinned"
     private var pollTimer: Timer?
     private var pollCount = 0
     private var imapSessions: [String: IMAPSession] = [:]
@@ -270,6 +272,7 @@ final class AppModel: ObservableObject {
            let decoded = try? JSONDecoder().decode([ScheduledSend].self, from: data) { scheduled = decoded }
         if let data = d.data(forKey: kSnoozed),
            let decoded = try? JSONDecoder().decode([String: Date].self, from: data) { snoozedUntil = decoded }
+        pinnedIds = Set(d.stringArray(forKey: kPinned) ?? [])
         // Welcome shows on first launch and whenever no account is connected.
         onboarding = accounts.isEmpty
         purgeSeedData()
@@ -335,12 +338,21 @@ final class AppModel: ObservableObject {
         if searchIsActive { return visibleEmails }
         if labelFilter != nil { return visibleEmails }
         if folder != "inbox" { return visibleEmails }
+        let list: [Email]
         switch filter {
-        case .unread: return visibleEmails.filter { $0.unread }
-        case .people: return visibleEmails.filter { SampleData.senders[$0.from]?.org != .bot }
-        case .updates: return visibleEmails.filter { SampleData.senders[$0.from]?.org == .bot }
-        case .all: return visibleEmails
+        case .unread: list = visibleEmails.filter { $0.unread }
+        case .people: list = visibleEmails.filter { SampleData.senders[$0.from]?.org != .bot }
+        case .updates: list = visibleEmails.filter { SampleData.senders[$0.from]?.org == .bot }
+        case .all: list = visibleEmails
         }
+        // Pinned mail heads the inbox, in its own section.
+        guard !pinnedIds.isEmpty else { return list }
+        return list.filter { pinnedIds.contains($0.id) } + list.filter { !pinnedIds.contains($0.id) }
+    }
+
+    /// The inbox shows a "Pinned" section above the rest.
+    var showsPinnedSection: Bool {
+        folder == "inbox" && !searchIsActive && labelFilter == nil && !pinnedIds.isEmpty
     }
 
     var selectedEmail: Email? {
@@ -2653,6 +2665,15 @@ final class AppModel: ObservableObject {
         for key in expired.keys { snoozedUntil[key] = nil }
         persistSnoozed()
         refreshCurrentRealFolder(silent: true)
+    }
+
+    func isPinned(_ id: String) -> Bool { pinnedIds.contains(id) }
+
+    func togglePin(_ id: String) {
+        let pin = !pinnedIds.contains(id)
+        if pin { pinnedIds.insert(id) } else { pinnedIds.remove(id) }
+        UserDefaults.standard.set(Array(pinnedIds), forKey: kPinned)
+        showToast(pin ? "Pinned to the top of the inbox" : "Unpinned")
     }
 
     func persistSnoozed() {

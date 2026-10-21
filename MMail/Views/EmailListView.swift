@@ -217,7 +217,18 @@ struct EmailListView: View {
                     ScrollView {
                         LazyVStack(spacing: 0, pinnedViews: []) {
                             if !model.readingPane {
-                                ForEach(visible) { e in
+                                let pinned = model.showsPinnedSection ? visible.filter { model.isPinned($0.id) } : []
+                                if !pinned.isEmpty {
+                                    sectionTitle("Pinned")
+                                    ForEach(pinned) { e in
+                                        GmailRowView(email: e,
+                                                     showAccountDot: model.currentAccount == "all",
+                                                     accountColor: model.accountsById[e.account]?.color)
+                                            .id(e.id)
+                                    }
+                                    sectionTitle("Everything else")
+                                }
+                                ForEach(pinned.isEmpty ? visible : visible.filter { !model.isPinned($0.id) }) { e in
                                     GmailRowView(email: e,
                                                  showAccountDot: model.currentAccount == "all",
                                                  accountColor: model.accountsById[e.account]?.color)
@@ -254,6 +265,16 @@ struct EmailListView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(p.fg2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
     }
 
     private var loadingState: some View {
@@ -551,6 +572,9 @@ struct EmailContextMenu: View {
         Button { model.toggleStar(email.id) } label: {
             Label(email.starred ? "Unstar" : "Star", systemImage: email.starred ? "star.slash" : "star")
         }
+        Button { model.togglePin(email.id) } label: {
+            Label(model.isPinned(email.id) ? "Unpin" : "Pin to top", systemImage: model.isPinned(email.id) ? "pin.slash" : "pin")
+        }
         Button { model.toggleRead(email.id) } label: {
             Label(email.unread ? "Mark as read" : "Mark as unread", systemImage: email.unread ? "envelope.open" : "envelope.badge")
         }
@@ -689,18 +713,22 @@ struct GmailRowView: View {
         .contextMenu { EmailContextMenu(email: email) }
     }
 
+    private var pinned: Bool { model.isPinned(email.id) }
+    private var slate: Color { p.isDark ? Color(hex: "96A8BC") : Color(hex: "4A698C") }
+
     /// Claude-style tile on the left (a tinted veil behind an outline symbol) for the
-    /// row's main action: mark as read when unread, delete when read. In a selection it
+    /// row's main action: mark as read when unread, pin / unpin when read. In a selection it
     /// shows the checkmark and toggles the row.
     private var primaryAction: some View {
         let (symbol, tint, help): (String, Color, String) =
             bulkSelected ? ("checkmark", p.fg1, "Deselect")
             : email.unread ? ("envelope.open", Arcos.clay, "Mark as read")
-            : ("trash", p.isDark ? Color(hex: "C79790") : Color(hex: "9E4C40"), "Delete")
+            : pinned ? ("pin.fill", slate, "Unpin")
+            : ("pin", slate, "Pin to the top of the inbox")
         return Button {
             if bulkSelected || model.selectionActive { model.toggleSelect(email.id) }
             else if email.unread { model.markRead(email.id) }
-            else { model.delete(email.id) }
+            else { model.togglePin(email.id) }
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 12, weight: bulkSelected ? .semibold : .regular))
