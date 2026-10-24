@@ -101,6 +101,9 @@ public static class GoogleOAuth
             using var socket = await listener.AcceptTcpClientAsync(ct);
             await using var stream = socket.GetStream();
             var requestLine = await ReadLineAsync(stream, ct);
+            // Read the rest of the request too: closing a socket with unread data resets the
+            // connection on Windows, and the browser would lose the page.
+            while ((await ReadLineAsync(stream, ct)).Length > 0) { }
             // "GET /?code=…&state=… HTTP/1.1"; browsers also ask for /favicon.ico.
             var target = requestLine.Split(' ') is [_, var t, ..] ? t : "/";
             var query = HttpUtility.ParseQueryString(target.Contains('?') ? target[(target.IndexOf('?') + 1)..] : "");
@@ -172,6 +175,8 @@ public static class GoogleOAuth
             $"Content-Length: {body.Length}\r\nConnection: close\r\n\r\n");
         await stream.WriteAsync(head, ct);
         await stream.WriteAsync(body, ct);
+        await stream.FlushAsync(ct);
+        if (stream is System.Net.Sockets.NetworkStream ns) ns.Socket.Shutdown(SocketShutdown.Send);
     }
 
     private static string Page(string title, string text) => $$"""
