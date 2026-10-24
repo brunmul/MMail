@@ -14,12 +14,12 @@ public static class Program
         try
         {
             WinRT.ComWrappersSupport.InitializeComWrappers();
-            Application.Start(_ =>
+            Application.Start(p =>
             {
                 StartupLog.Write("WinUI started");
                 SynchronizationContext.SetSynchronizationContext(
                     new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
-                _ = new App();
+                new App();
             });
         }
         catch (Exception ex)
