@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using MMail.Core.Agent;
@@ -16,11 +17,24 @@ public partial class App : Application
 
     public App()
     {
+        // A crash at startup would otherwise close MMail without a word: say what happened.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => ReportCrash(e.ExceptionObject as Exception);
+        UnhandledException += (_, e) => ReportCrash(e.Exception);
         InitializeComponent();
         Palette.Install(Resources);
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        try { Launch(); }
+        catch (Exception ex)
+        {
+            ReportCrash(ex);
+            Exit();
+        }
+    }
+
+    private void Launch()
     {
         // One MMail per user: the second launch (e.g. from mmail-mcp) just quits.
         _singleInstance = new Mutex(true, $"MMail-{Environment.UserName}", out var first);
@@ -45,6 +59,27 @@ public partial class App : Application
         _window.Activate();
         if (background) _window.Minimize();
     }
+
+    private static int _reported;
+
+    /// Writes the error to %LOCALAPPDATA%\MMail\crash.log and shows it in a plain Win32 box,
+    /// which works even when XAML itself is what failed.
+    public static void ReportCrash(Exception? ex)
+    {
+        if (Interlocked.Exchange(ref _reported, 1) == 1) return;
+        var text = ex?.ToString() ?? "Unknown error";
+        var log = Path.Combine(AppPaths.Home, "crash.log");
+        try
+        {
+            Directory.CreateDirectory(AppPaths.Home);
+            File.AppendAllText(log, $"--- {DateTime.Now:O} MMail {typeof(App).Assembly.GetName().Version}\r\n{text}\r\n");
+        }
+        catch { }
+        MessageBoxW(IntPtr.Zero, $"MMail stopped because of an error.\n\n{ex?.Message}\n\nDetails were saved to {log}", "MMail", 0x10);
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 }
 
 /// Runs the agent's requests on the window's thread, where the controller lives.
