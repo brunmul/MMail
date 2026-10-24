@@ -366,14 +366,14 @@ public sealed partial class MainWindow : Window
         core.Settings.AreDevToolsEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
         // Links open in the browser, never inside the reader.
-        core.NavigationStarting += (_, a) =>
+        core.NavigationStarting += (s, a) =>
         {
             if (a.Uri.StartsWith("data:") || a.Uri.StartsWith("about:")) return;
             a.Cancel = true;
             if (Uri.TryCreate(a.Uri, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
                 _ = Launcher.LaunchUriAsync(uri);
         };
-        core.NewWindowRequested += (_, a) =>
+        core.NewWindowRequested += (s, a) =>
         {
             a.Handled = true;
             if (Uri.TryCreate(a.Uri, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" or "mailto")
