@@ -1,0 +1,48 @@
+name: Windows
+on:
+  push:
+    paths: ["windows/**", ".github/workflows/windows.yml"]
+  pull_request:
+    paths: ["windows/**", ".github/workflows/windows.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: windows-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Test the core (mail, cache, MCP tools)
+        run: dotnet test tests/MMail.Core.Tests -c Release
+      - name: Build the app (WinUI 3, self-contained)
+        run: dotnet publish src/MMail.App/MMail.App.csproj -c Release -r win-x64 -p:Platform=x64 -o out/MMail
+      - name: Build the Claude bridge (mmail-mcp.exe)
+        run: dotnet publish src/MMail.Mcp/MMail.Mcp.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o out/MMail
+      - name: Check the package
+        shell: pwsh
+        run: |
+          foreach ($f in "MMail.exe", "mmail-mcp.exe", "Assets/MMail.png", "Assets/MMail.ico") {
+            if (-not (Test-Path "out/MMail/$f")) { throw "missing $f" }
+          }
+          Compress-Archive -Path out/MMail/* -DestinationPath MMail-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MMail-Windows-x64
+          path: windows/MMail-Windows-x64.zip
+      # Ready-to-run build of the facteur branch, published as a prerelease.
+      - name: Publish prerelease
+        if: github.event_name == 'push' && github.ref == 'refs/heads/facteur'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete facteur-windows-latest --yes --cleanup-tag
+          gh release create facteur-windows-latest MMail-Windows-x64.zip --prerelease --target "$env:GITHUB_SHA" --title "MMail pour Windows (facteur) – dernière version" --notes "Build automatique de la branche facteur ($env:GITHUB_SHA). Dézipper et lancer MMail.exe."
