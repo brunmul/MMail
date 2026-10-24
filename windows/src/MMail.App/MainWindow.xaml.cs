@@ -67,6 +67,7 @@ public sealed partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        StartupLog.Write("window loaded");
         Refresh();
         await InitReader();
         _poll.Start();
