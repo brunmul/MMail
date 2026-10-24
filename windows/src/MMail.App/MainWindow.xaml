@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="MMail.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MMail.App.ViewModels"
+    Title="MMail">
+
+    <Grid x:Name="Root" Background="{ThemeResource ArcosPaperBrush}" KeyDown="Root_KeyDown">
+        <Grid.Resources>
+            <Style x:Key="IconButton" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Foreground" Value="{ThemeResource ArcosFg2Brush}" />
+            </Style>
+            <Style x:Key="SidebarButton" TargetType="Button">
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="Padding" Value="12,0,14,0" />
+                <Setter Property="CornerRadius" Value="17" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            </Style>
+            <Style x:Key="TabButton" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="18,0" />
+                <Setter Property="Height" Value="44" />
+                <Setter Property="CornerRadius" Value="0" />
+            </Style>
+
+            <DataTemplate x:Key="HeaderTemplate" x:DataType="vm:SectionHeaderItem">
+                <TextBlock Text="{x:Bind Title}" FontSize="11" FontWeight="Medium"
+                           Foreground="{ThemeResource ArcosFg2Brush}" Margin="16,14,0,6" />
+            </DataTemplate>
+
+            <DataTemplate x:Key="MailRowTemplate">
+                <Grid Height="40" Background="{Binding RowBackground}" BorderBrush="{ThemeResource ArcosBorderBrush}"
+                      BorderThickness="0,0,0,1" Padding="8,0,0,0"
+                      PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited" RightTapped="Row_RightTapped">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="34" />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="160" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Width="26" Height="26" Padding="0" BorderThickness="0" CornerRadius="7"
+                            Background="{Binding TileBackground}" Click="Tile_Click" ToolTipService.ToolTip="{Binding TileHelp}">
+                        <FontIcon Glyph="{Binding TileGlyph}" FontSize="12" Foreground="{Binding TileForeground}" />
+                    </Button>
+                    <Button Grid.Column="1" Style="{StaticResource IconButton}" Width="28" Height="28" Click="Star_Click"
+                            ToolTipService.ToolTip="Star (S)">
+                        <FontIcon Glyph="{Binding StarGlyph}" FontSize="14" Foreground="{Binding StarForeground}" />
+                    </Button>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,8,0">
+                        <Ellipse Width="7" Height="7" Margin="0,0,6,0" Fill="{Binding AccountBrush}"
+                                 Visibility="{Binding AccountDotVisibility}" />
+                        <TextBlock Text="{Binding SenderText}" FontWeight="{Binding Weight}" FontSize="13.5"
+                                   Foreground="{Binding Fg1}" TextTrimming="CharacterEllipsis" MaxWidth="180" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="3" Text="{Binding Subject}" FontWeight="{Binding Weight}" FontSize="13.5"
+                               Foreground="{Binding Fg1}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" MaxWidth="560" />
+                    <TextBlock Grid.Column="4" Text="{Binding PreviewText}" FontSize="13.5" Foreground="{Binding Fg3}"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Margin="0,0,16,0" Spacing="8" Visibility="{Binding RestVisibility}">
+                        <FontIcon Glyph="&#xE723;" FontSize="13" Foreground="{Binding Fg3}" Visibility="{Binding AttachmentVisibility}" />
+                        <TextBlock Text="{Binding TimeText}" FontSize="12" FontWeight="{Binding Weight}" Foreground="{Binding TimeForeground}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Margin="0,0,8,0" Spacing="2" Visibility="{Binding HoverVisibility}">
+                        <Button Style="{StaticResource IconButton}" Click="RowArchive_Click" ToolTipService.ToolTip="Archive (E)">
+                            <FontIcon Glyph="&#xE7B8;" FontSize="14" />
+                        </Button>
+                        <Button Style="{StaticResource IconButton}" Click="RowDelete_Click" ToolTipService.ToolTip="Delete (#)">
+                            <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                        </Button>
+                        <Button Style="{StaticResource IconButton}" Click="RowRead_Click" ToolTipService.ToolTip="{Binding ReadToggleHelp}">
+                            <FontIcon Glyph="{Binding ReadToggleGlyph}" FontSize="14" />
+                        </Button>
+                        <Button Style="{StaticResource IconButton}" Click="RowSnooze_Click" ToolTipService.ToolTip="Snooze (Z)">
+                            <FontIcon Glyph="&#xE823;" FontSize="14" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+
+            <vm:RowTemplateSelector x:Key="RowSelector"
+                                    MailTemplate="{StaticResource MailRowTemplate}"
+                                    HeaderTemplate="{StaticResource HeaderTemplate}" />
+
+            <DataTemplate x:Key="SidebarTemplate">
+                <Button Style="{StaticResource SidebarButton}" Background="{Binding Background}" Click="Sidebar_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="30" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="{Binding Glyph}" FontSize="15" Foreground="{Binding IconForeground}" HorizontalAlignment="Left" />
+                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13.5" FontWeight="{Binding Weight}"
+                                   Foreground="{Binding Foreground}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding CountText}" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{Binding Foreground}" VerticalAlignment="Center" />
+                    </Grid>
+                </Button>
+            </DataTemplate>
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="44" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="248" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Title bar (draggable) -->
+        <Grid x:Name="TitleBar" Grid.ColumnSpan="2" Background="Transparent">
+            <StackPanel Orientation="Horizontal" Margin="18,0,0,0" Spacing="10" VerticalAlignment="Center">
+                <Image x:Name="AppIcon" Width="20" Height="20" />
+                <TextBlock Text="MMail" FontSize="13" FontWeight="SemiBold" Foreground="{ThemeResource ArcosFg1Brush}" VerticalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Sidebar -->
+        <Grid Grid.Row="1" Padding="12,4,8,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Button x:Name="ComposeButton" Height="52" Padding="18,0,24,0" CornerRadius="16" BorderThickness="0"
+                    Background="{ThemeResource ArcosPanelBrush}" Margin="0,0,0,14" Click="Compose_Click"
+                    ToolTipService.ToolTip="Compose (C)">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <FontIcon Glyph="&#xE70F;" FontSize="16" Foreground="{ThemeResource ArcosFg1Brush}" />
+                    <TextBlock Text="Compose" FontSize="14" FontWeight="SemiBold" Foreground="{ThemeResource ArcosFg1Brush}" />
+                </StackPanel>
+            </Button>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="1">
+                    <ItemsControl x:Name="FolderList" ItemTemplate="{StaticResource SidebarTemplate}" />
+                    <TextBlock x:Name="LabelsTitle" Text="Labels" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{ThemeResource ArcosFg3Brush}" Margin="14,18,0,6" />
+                    <ItemsControl x:Name="LabelList" ItemTemplate="{StaticResource SidebarTemplate}" />
+                    <TextBlock x:Name="AccountsTitle" Text="Accounts" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{ThemeResource ArcosFg3Brush}" Margin="14,18,0,6" />
+                    <ItemsControl x:Name="AccountList" ItemTemplate="{StaticResource SidebarTemplate}" />
+                </StackPanel>
+            </ScrollViewer>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="4" Margin="4,8,0,0">
+                <Button Style="{StaticResource IconButton}" Click="Settings_Click" ToolTipService.ToolTip="Settings">
+                    <FontIcon Glyph="&#xE713;" FontSize="15" />
+                </Button>
+                <Button Style="{StaticResource IconButton}" Click="AddAccount_Click" ToolTipService.ToolTip="Add an account">
+                    <FontIcon Glyph="&#xE710;" FontSize="15" />
+                </Button>
+                <Button Style="{StaticResource IconButton}" Click="Refresh_Click" ToolTipService.ToolTip="Refresh">
+                    <FontIcon Glyph="&#xE72C;" FontSize="15" />
+                </Button>
+                <ProgressRing x:Name="SyncRing" Width="16" Height="16" IsActive="False" Margin="6,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Main column -->
+        <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,16,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <AutoSuggestBox x:Name="SearchBox" PlaceholderText="Search mail" QueryIcon="Find" MaxWidth="720"
+                            HorizontalAlignment="Left" Width="720" Margin="0,4,0,12" CornerRadius="22"
+                            QuerySubmitted="Search_QuerySubmitted" TextChanged="Search_TextChanged" />
+
+            <Border Grid.Row="1" Background="{ThemeResource ArcosPanelBrush}" CornerRadius="16">
+                <Grid>
+                    <!-- The list -->
+                    <Grid x:Name="ListPane">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Padding="16,10,12,6">
+                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock x:Name="FolderTitle" Text="Inbox" FontSize="20" FontFamily="{StaticResource SerifFont}"
+                                           Foreground="{ThemeResource ArcosFg1Brush}" />
+                                <TextBlock x:Name="FolderCount" FontSize="12" Foreground="{ThemeResource ArcosFg3Brush}" VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="4">
+                                <TextBlock x:Name="ErrorText" Foreground="{ThemeResource ArcosDangerBrush}" FontSize="12"
+                                           VerticalAlignment="Center" MaxWidth="420" TextTrimming="CharacterEllipsis" />
+                                <Button x:Name="ClearSearchButton" Content="Clear search" Click="ClearSearch_Click" Visibility="Collapsed" />
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel x:Name="Tabs" Grid.Row="1" Orientation="Horizontal" BorderBrush="{ThemeResource ArcosBorderBrush}" BorderThickness="0,0,0,1" />
+                        <ListView x:Name="MailList" Grid.Row="2" SelectionMode="Single" IsItemClickEnabled="True"
+                                  ItemTemplateSelector="{StaticResource RowSelector}" ItemClick="MailList_ItemClick"
+                                  PointerEntered="MailList_PointerEntered" PointerExited="MailList_PointerExited">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="CornerRadius" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.Footer>
+                                <Button x:Name="OlderButton" Content="Load older mail" HorizontalAlignment="Center" Margin="0,14" Click="Older_Click" />
+                            </ListView.Footer>
+                        </ListView>
+                        <StackPanel x:Name="EmptyState" Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" Visibility="Collapsed">
+                            <FontIcon Glyph="&#xE715;" FontSize="34" Foreground="{ThemeResource ArcosFg4Brush}" />
+                            <TextBlock x:Name="EmptyText" Text="Nothing here" FontSize="14" Foreground="{ThemeResource ArcosFg3Brush}" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- The reader (full width, like Gmail without a reading pane) -->
+                    <Grid x:Name="ReaderPane" Visibility="Collapsed" Background="{ThemeResource ArcosPanelBrush}" CornerRadius="16">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid Padding="8,8,12,4">
+                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                <Button Style="{StaticResource IconButton}" Click="Back_Click" ToolTipService.ToolTip="Back (Esc)">
+                                    <FontIcon Glyph="&#xE72B;" FontSize="15" />
+                                </Button>
+                                <Border Width="12" />
+                                <Button Style="{StaticResource IconButton}" Click="ReaderArchive_Click" ToolTipService.ToolTip="Archive (E)">
+                                    <FontIcon Glyph="&#xE7B8;" FontSize="15" />
+                                </Button>
+                                <Button Style="{StaticResource IconButton}" Click="ReaderSpam_Click" ToolTipService.ToolTip="Report spam">
+                                    <FontIcon Glyph="&#xE730;" FontSize="15" />
+                                </Button>
+                                <Button Style="{StaticResource IconButton}" Click="ReaderDelete_Click" ToolTipService.ToolTip="Delete (#)">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="15" />
+                                </Button>
+                                <Border Width="12" />
+                                <Button Style="{StaticResource IconButton}" Click="ReaderUnread_Click" ToolTipService.ToolTip="Mark as unread">
+                                    <FontIcon Glyph="&#xE715;" FontSize="15" />
+                                </Button>
+                                <Button x:Name="ReaderSnoozeButton" Style="{StaticResource IconButton}" Click="ReaderSnooze_Click" ToolTipService.ToolTip="Snooze (Z)">
+                                    <FontIcon Glyph="&#xE823;" FontSize="15" />
+                                </Button>
+                                <Button x:Name="ReaderMoreButton" Style="{StaticResource IconButton}" Click="ReaderMore_Click" ToolTipService.ToolTip="More">
+                                    <FontIcon Glyph="&#xE712;" FontSize="15" />
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                                <Button Click="Reply_Click" ToolTipService.ToolTip="Reply (R)">
+                                    <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8CA;" FontSize="13" /><TextBlock Text="Reply" /></StackPanel>
+                                </Button>
+                                <Button Click="ReplyAll_Click" ToolTipService.ToolTip="Reply all (A)">
+                                    <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE8C2;" FontSize="13" /><TextBlock Text="Reply all" /></StackPanel>
+                                </Button>
+                                <Button Click="Forward_Click" ToolTipService.ToolTip="Forward (F)">
+                                    <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE72D;" FontSize="13" /><TextBlock Text="Forward" /></StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Grid.Row="1" Padding="64,12,24,4" Spacing="8">
+                            <TextBlock x:Name="ReaderSubject" FontSize="22" FontFamily="{StaticResource SerifFont}" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource ArcosFg1Brush}" IsTextSelectionEnabled="True" />
+                            <ItemsControl x:Name="ReaderLabels">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+                        <Grid Grid.Row="2" Padding="20,10,24,10" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="36" Height="36">
+                                <Ellipse x:Name="ReaderAvatar" />
+                                <TextBlock x:Name="ReaderInitials" Foreground="White" FontWeight="SemiBold" FontSize="13"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock IsTextSelectionEnabled="True">
+                                    <Run x:Name="ReaderFrom" FontWeight="SemiBold" Foreground="{ThemeResource ArcosFg1Brush}" />
+                                    <Run x:Name="ReaderFromEmail" FontSize="12" Foreground="{ThemeResource ArcosFg3Brush}" />
+                                </TextBlock>
+                                <TextBlock x:Name="ReaderTo" FontSize="12" Foreground="{ThemeResource ArcosFg3Brush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock x:Name="ReaderDate" FontSize="12" Foreground="{ThemeResource ArcosFg3Brush}" VerticalAlignment="Center" />
+                                <Button Style="{StaticResource IconButton}" Click="ReaderStar_Click" ToolTipService.ToolTip="Star (S)">
+                                    <FontIcon x:Name="ReaderStarIcon" Glyph="&#xE734;" FontSize="15" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <Border x:Name="ImagesBar" Grid.Row="3" Margin="64,0,24,8" Padding="12,8" CornerRadius="8"
+                                Background="{ThemeResource ArcosClayWashBrush}" Visibility="Collapsed">
+                            <Grid>
+                                <TextBlock x:Name="ImagesText" VerticalAlignment="Center" Foreground="{ThemeResource ArcosFg1Brush}" FontSize="12.5" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                                    <Button Content="Show once" Click="ShowImages_Click" />
+                                    <Button Content="Always from this sender" Click="TrustImages_Click" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <Grid Grid.Row="4" Margin="56,0,16,0">
+                            <WebView2 x:Name="ReaderWeb" />
+                            <ProgressRing x:Name="ReaderLoading" IsActive="False" Width="28" Height="28" />
+                        </Grid>
+                        <StackPanel Grid.Row="5" Padding="64,8,24,16" Spacing="8">
+                            <Border x:Name="InviteBar" Padding="12,8" CornerRadius="8" Background="{ThemeResource ArcosReadRowBrush}" Visibility="Collapsed">
+                                <StackPanel Spacing="2">
+                                    <TextBlock x:Name="InviteTitle" FontWeight="SemiBold" Foreground="{ThemeResource ArcosFg1Brush}" />
+                                    <TextBlock x:Name="InviteWhen" FontSize="12" Foreground="{ThemeResource ArcosFg3Brush}" />
+                                </StackPanel>
+                            </Border>
+                            <ItemsControl x:Name="ReaderAttachments">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="8" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Composer: floats bottom-right, like Gmail -->
+        <Border x:Name="ComposePane" Grid.Row="1" Grid.Column="1" Width="580" Height="560"
+                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,40,0" Visibility="Collapsed"
+                Background="{ThemeResource ArcosPanelBrush}" CornerRadius="12,12,0,0"
+                BorderBrush="{ThemeResource ArcosBorderBrush}" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid Background="{ThemeResource ArcosReadRowBrush}" CornerRadius="12,12,0,0" Padding="14,0,6,0">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"
+                               Foreground="{ThemeResource ArcosFg1Brush}" />
+                    <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" Click="ComposeClose_Click"
+                            ToolTipService.ToolTip="Save draft and close">
+                        <FontIcon Glyph="&#xE711;" FontSize="12" />
+                    </Button>
+                </Grid>
+                <StackPanel Grid.Row="1" Padding="14,6,14,0" Spacing="2">
+                    <ComboBox x:Name="FromBox" HorizontalAlignment="Stretch" BorderThickness="0" Background="Transparent"
+                              DisplayMemberPath="Label" SelectedValuePath="Id" SelectedValue="{Binding FromId, Mode=TwoWay}" />
+                    <Grid>
+                        <TextBox PlaceholderText="To" Text="{Binding To, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0,0,0,1" />
+                        <HyperlinkButton x:Name="CcToggle" Content="Cc Bcc" HorizontalAlignment="Right" Padding="6,2" Click="CcToggle_Click" />
+                    </Grid>
+                    <TextBox x:Name="CcBox" PlaceholderText="Cc" Visibility="Collapsed" Text="{Binding Cc, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0,0,0,1" />
+                    <TextBox x:Name="BccBox" PlaceholderText="Bcc" Visibility="Collapsed" Text="{Binding Bcc, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0,0,0,1" />
+                    <TextBox PlaceholderText="Subject" Text="{Binding Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" BorderThickness="0,0,0,1" />
+                </StackPanel>
+                <TextBox x:Name="ComposeBody" Grid.Row="2" Margin="14,6,14,0" AcceptsReturn="True" TextWrapping="Wrap" BorderThickness="0"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         Text="{Binding Body, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <ItemsControl x:Name="ComposeAttachments" Grid.Row="3" Margin="14,4" ItemsSource="{Binding Attachments}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Click="RemoveAttachment_Click" ToolTipService.ToolTip="Remove" CornerRadius="12" Padding="10,3">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE723;" FontSize="12" />
+                                    <TextBlock Text="{Binding FileName}" FontSize="12" />
+                                    <FontIcon Glyph="&#xE711;" FontSize="9" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Grid Grid.Row="4" Padding="14,8,10,12">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Style="{StaticResource AccentButtonStyle}" Click="Send_Click" CornerRadius="18" Padding="22,7"
+                                ToolTipService.ToolTip="Send (Ctrl+Enter)">
+                            <TextBlock Text="Send" FontWeight="SemiBold" />
+                        </Button>
+                        <Button Style="{StaticResource IconButton}" Click="Attach_Click" ToolTipService.ToolTip="Attach files">
+                            <FontIcon Glyph="&#xE723;" FontSize="15" />
+                        </Button>
+                    </StackPanel>
+                    <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right" Click="Discard_Click" ToolTipService.ToolTip="Discard draft">
+                        <FontIcon Glyph="&#xE74D;" FontSize="15" />
+                    </Button>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Toast with Undo -->
+        <Border x:Name="Toast" Grid.Row="1" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                Margin="24,0,0,28" Padding="16,10,8,10" CornerRadius="10" Background="#FF262624" Visibility="Collapsed">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock x:Name="ToastText" Foreground="#FFF5F4ED" VerticalAlignment="Center" MaxWidth="460" TextTrimming="CharacterEllipsis" />
+                <HyperlinkButton x:Name="ToastAction" Foreground="#FFE08A6A" Padding="8,2" Click="ToastAction_Click" />
+                <Button Style="{StaticResource IconButton}" Width="26" Height="26" Click="ToastClose_Click" Foreground="#FFA9A79F">
+                    <FontIcon Glyph="&#xE711;" FontSize="10" />
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
