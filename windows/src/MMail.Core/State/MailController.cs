@@ -896,6 +896,24 @@ public sealed class MailController
         return cfg;
     }
 
+    /// "Sign in with Google": opens Google's page in the browser through <paramref name="openBrowser"/>,
+    /// then adds the chosen account (or repairs it, when it is already there).
+    public async Task<MailAccountConfig> AddGoogleAccountAsync(Action<Uri> openBrowser, CancellationToken ct = default)
+    {
+        var client = GoogleClient.Default
+                     ?? throw new InvalidOperationException("Google sign-in is not set up in this build of MMail yet.");
+        var signIn = await GoogleOAuth.SignInAsync(client, openBrowser, ct);
+        var cfg = MailAccountConfig.Gmail(signIn.Name, signIn.Email);
+        cfg.Auth = AuthKind.Google;
+        if (Accounts.FirstOrDefault(a => a.Email.Equals(signIn.Email, StringComparison.OrdinalIgnoreCase)) is { } existing)
+        {
+            cfg.Id = existing.Id;
+            if (existing.DisplayName.Length > 0) cfg.DisplayName = existing.DisplayName;
+            _mail.Forget(existing.Id);
+        }
+        return await AddAccountAsync(cfg, signIn.RefreshToken);
+    }
+
     public void RemoveAccount(string id)
     {
         if (Config(id) is not { } cfg) return;

@@ -19,11 +19,19 @@ then *Run anyway*. A portable `MMail-Windows-x64.zip` is published next to it.
 Windows 10 1809 or later; the reader uses the WebView2 runtime that ships with
 Windows 11 and Edge.
 
-The first launch asks for an account. For Gmail, create an
-[app password](https://myaccount.google.com/apppasswords) (two-step verification
-must be on) and paste it; MMail connects to `imap.gmail.com:993` and
-`smtp.gmail.com:465`. Passwords are kept in the Windows Credential Manager
-(`MMail:<account>.imap`), mail and settings in `%LOCALAPPDATA%\MMail`.
+The first launch asks for an account: **Sign in with Google** opens Google's page in
+the browser, and MMail then reads and sends Gmail over IMAP/SMTP with OAuth (XOAUTH2).
+Other options, behind "Autre messagerie": a Gmail
+[app password](https://myaccount.google.com/apppasswords), or any IMAP/SMTP server.
+Google refresh tokens and passwords are kept in the Windows Credential Manager
+(`MMail:<account>.imap`), mail and settings in `%LOCALAPPDATA%\MMail`. If MMail fails
+at launch, `%LOCALAPPDATA%\MMail\startup.log` says where.
+
+Google sign-in needs an OAuth client of type *Desktop app* in Google Cloud (Google Auth
+Platform, audience External, published so tokens don't expire after 7 days). Its ID
+and secret go in the repository secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`;
+the workflow builds them in. Locally, set `MMAIL_GOOGLE_CLIENT_ID` /
+`MMAIL_GOOGLE_CLIENT_SECRET`, or pass `-p:GoogleClientId=… -p:GoogleClientSecret=…`.
 
 ## Claude
 

@@ -302,3 +302,57 @@ public class ClaudeSetupTests
         Directory.Delete(dir, true);
     }
 }
+
+public class GoogleOAuthTests
+{
+    [Fact]
+    public void Authorize_link_asks_for_mail_offline_with_pkce()
+    {
+        var uri = GoogleOAuth.AuthorizeUri(new GoogleClient("id.apps.googleusercontent.com", "s"), "http://127.0.0.1:5000", "verifier", "st");
+        var q = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        Assert.Equal("accounts.google.com", uri.Host);
+        Assert.Equal("id.apps.googleusercontent.com", q["client_id"]);
+        Assert.Equal("http://127.0.0.1:5000", q["redirect_uri"]);
+        Assert.Contains("https://mail.google.com/", q["scope"]);
+        Assert.Equal("offline", q["access_type"]);
+        Assert.Equal("S256", q["code_challenge_method"]);
+        // SHA-256 of "verifier", base64url without padding.
+        Assert.Equal("iMnq5o6zALKXGivsnlom_0F5_WYda32GHkxlV7mq7hQ", q["code_challenge"]);
+        Assert.Equal("st", q["state"]);
+    }
+
+    [Fact]
+    public void Reads_email_and_name_from_the_id_token()
+    {
+        static string B64(string s) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(s)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var token = $"{B64("{\"alg\":\"RS256\"}")}.{B64("{\"email\":\"bruno@gmail.com\",\"name\":\"Bruno Müller\"}")}.sig";
+        Assert.Equal(("bruno@gmail.com", "Bruno Müller"), GoogleOAuth.ReadIdToken(token));
+        Assert.Equal(("", ""), GoogleOAuth.ReadIdToken("garbage"));
+    }
+
+    [Fact]
+    public async Task Loopback_listener_returns_the_code_and_skips_other_requests()
+    {
+        using var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        var code = GoogleOAuth.ReceiveCodeAsync(listener, "abc", new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token);
+
+        using var http = new HttpClient();
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await http.GetAsync($"http://127.0.0.1:{port}/favicon.ico")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, (await http.GetAsync($"http://127.0.0.1:{port}/?code=x&state=wrong")).StatusCode);
+        var page = await http.GetStringAsync($"http://127.0.0.1:{port}/?code=4%2F0Ab&state=abc&scope=email");
+        Assert.Contains("MMail", page);
+        Assert.Equal("4/0Ab", await code);
+    }
+
+    [Fact]
+    public void Google_accounts_survive_a_restart()
+    {
+        using var f = new Fixture();
+        var cfg = MailAccountConfig.Gmail("Me", "me@gmail.com");
+        cfg.Auth = AuthKind.Google;
+        f.Store.SaveAccount(cfg, 0);
+        Assert.Equal(AuthKind.Google, f.Store.LoadAccounts().Single().Auth);
+    }
+}

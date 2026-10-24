@@ -19,6 +19,7 @@ public sealed class MailKitService(ICredentialStore credentials) : IMailService
     }
 
     private readonly Dictionary<string, Conn> _conns = [];
+    private readonly GoogleTokens _google = new();
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
 
     private static SecureSocketOptions Options(ConnectionSecurity s) => s switch
@@ -33,13 +34,22 @@ public sealed class MailKitService(ICredentialStore credentials) : IMailService
         using (var imap = new ImapClient { Timeout = (int)Timeout.TotalMilliseconds })
         {
             await imap.ConnectAsync(cfg.ImapHost, cfg.ImapPort, Options(cfg.ImapSecurity), ct);
-            await imap.AuthenticateAsync(cfg.ImapUsername, imapPassword, ct);
+            await LoginAsync(imap, cfg, cfg.ImapUsername, imapPassword, ct);
             await imap.DisconnectAsync(true, ct);
         }
         using var smtp = new SmtpClient { Timeout = (int)Timeout.TotalMilliseconds };
         await smtp.ConnectAsync(cfg.SmtpHost, cfg.SmtpPort, Options(cfg.SmtpSecurity), ct);
-        await smtp.AuthenticateAsync(cfg.SmtpUsername, smtpPassword, ct);
+        await LoginAsync(smtp, cfg, cfg.SmtpUsername, smtpPassword, ct);
         await smtp.DisconnectAsync(true, ct);
+    }
+
+    /// <paramref name="secret"/> is the password, or for Google sign-in the refresh token.
+    private async Task LoginAsync(MailService client, MailAccountConfig cfg, string user, string secret, CancellationToken ct)
+    {
+        if (cfg.Auth == AuthKind.Google)
+            await client.AuthenticateAsync(new SaslMechanismOAuth2(user, await _google.AccessTokenAsync(cfg.Id, secret, ct)), ct);
+        else
+            await client.AuthenticateAsync(user, secret, ct);
     }
 
     private async Task<T> WithClient<T>(MailAccountConfig cfg, Func<ImapClient, Task<T>> work, CancellationToken ct)
@@ -64,7 +74,7 @@ public sealed class MailKitService(ICredentialStore credentials) : IMailService
                         await client.ConnectAsync(cfg.ImapHost, cfg.ImapPort, Options(cfg.ImapSecurity), ct);
                         var password = credentials.Get(cfg.ImapPasswordKey)
                                        ?? throw new InvalidOperationException($"No password saved for {cfg.Email}.");
-                        await client.AuthenticateAsync(cfg.ImapUsername, password, ct);
+                        await LoginAsync(client, cfg, cfg.ImapUsername, password, ct);
                         conn.Client = client;
                     }
                     return await work(client);
@@ -231,13 +241,14 @@ public sealed class MailKitService(ICredentialStore credentials) : IMailService
                        ?? throw new InvalidOperationException($"No password saved for {cfg.Email}.");
         using var smtp = new SmtpClient { Timeout = (int)Timeout.TotalMilliseconds };
         await smtp.ConnectAsync(cfg.SmtpHost, cfg.SmtpPort, Options(cfg.SmtpSecurity), ct);
-        await smtp.AuthenticateAsync(cfg.SmtpUsername, password, ct);
+        await LoginAsync(smtp, cfg, cfg.SmtpUsername, password, ct);
         await smtp.SendAsync(message, ct);
         await smtp.DisconnectAsync(true, ct);
     }
 
     public void Forget(string accountId)
     {
+        _google.Forget(accountId);
         lock (_conns)
         {
             if (_conns.Remove(accountId, out var conn)) conn.Client?.Dispose();
