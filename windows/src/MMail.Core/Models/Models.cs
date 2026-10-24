@@ -5,6 +5,10 @@ namespace MMail.Core.Models;
 
 public enum ConnectionSecurity { Tls, StartTls, None }
 
+/// How an account logs in: a password (app password for Gmail), or "Sign in with Google",
+/// where the credential store keeps Google's refresh token instead of a password.
+public enum AuthKind { Password, Google }
+
 /// Connection settings for an IMAP/SMTP account. Passwords live in the
 /// credential store, keyed by <see cref="ImapPasswordKey"/> / <see cref="SmtpPasswordKey"/>.
 public sealed class MailAccountConfig
@@ -22,6 +26,8 @@ public sealed class MailAccountConfig
     public int SmtpPort { get; set; } = 465;
     public ConnectionSecurity SmtpSecurity { get; set; } = ConnectionSecurity.Tls;
     public string SmtpUsername { get; set; } = "";
+
+    public AuthKind Auth { get; set; } = AuthKind.Password;
 
     public string ImapPasswordKey => $"{Id}.imap";
     public string SmtpPasswordKey => $"{Id}.smtp";

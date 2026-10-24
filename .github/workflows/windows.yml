@@ -24,6 +24,10 @@ jobs:
       - name: Test the core (mail, cache, MCP tools)
         run: dotnet test tests/MMail.Core.Tests -c Release
       - name: Build the app (WinUI 3, self-contained)
+        # MSBuild reads these as the GoogleClientId / GoogleClientSecret properties (Sign in with Google).
+        env:
+          GoogleClientId: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GoogleClientSecret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: dotnet publish src/MMail.App/MMail.App.csproj -c Release -r win-x64 -p:Platform=x64 -o out/MMail
       - name: Build the Claude bridge (mmail-mcp.exe)
         run: dotnet publish src/MMail.Mcp/MMail.Mcp.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o out/MMail

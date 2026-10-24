@@ -689,7 +689,7 @@ public sealed partial class MainWindow : Window
         return await dialog.ShowAsync() == ContentDialogResult.Primary ? box.Text.Trim() : null;
     }
 
-    private Task ShowAccountDialog(bool firstRun) => AccountDialog.ShowAsync(Root.XamlRoot, _model, firstRun);
+    private Task ShowAccountDialog(bool firstRun) => AccountDialog.ShowAsync(Root.XamlRoot, _model, firstRun, () => Activate());
 
     private Task ShowSettings() => SettingsDialog.ShowAsync(Root.XamlRoot, _model, _store, theme =>
     {
