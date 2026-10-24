@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- mmail-mcp.exe: what Claude launches as its MCP server. It relays stdio to the
+       running MMail app's local pipe, starting the app first if needed. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>mmail-mcp</AssemblyName>
+    <RootNamespace>MMail.Mcp</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

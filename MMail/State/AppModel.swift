@@ -104,12 +104,14 @@ final class AppModel: ObservableObject {
     @Published var onboarding: Bool
     @Published var accounts: [Account] = []
     @Published var currentAccount: String = "all"
-    @Published var folder: String = "home"
+    @Published var folder: String = "inbox"   // Gmail opens on the inbox
     @Published var emails: [Email] = []
     @Published var selectedId: String?
     @Published var filter: InboxFilter = .all
     // When the reading pane is off, this opens the selected message full-width.
-    @Published var readerFullScreen = false
+    @Published var readerFullScreen = false {
+        didSet { if readerFullScreen && !oldValue { markSelectedReadSoon() } }
+    }
     // Bulk selection (checkboxes in the list).
     @Published var selectedIds: Set<String> = []
     var selectionActive: Bool { !selectedIds.isEmpty }
@@ -185,9 +187,23 @@ final class AppModel: ObservableObject {
     @Published var scheduled: [ScheduledSend] = []
     @Published var sending: [SendingItem] = []   // in-flight sends (Outbox progress)
     @Published var snoozedUntil: [String: Date] = [:]   // "accountId#uid" -> wake date
+    @Published var pinnedIds: Set<String> = []           // pinned to the top of the inbox
+    @Published var inviteReplies: [String: String] = [:] // email id -> ACCEPTED / TENTATIVE / DECLINED
+    var hoveredId: String?                               // list row under the pointer (for U)
+    /// Inbox sections, top to bottom.
+    enum ListSection: Int { case pinned, unread, rest }
+    /// When a read / star change was last made here, so a refresh racing the server
+    /// update doesn't flip it back.
+    private var localFlagEdits: [String: Date] = [:]
+    @Published var keyboardNav = false                   // last move was by keyboard: show the current row
     @Published var downloadingAttachments: Set<String> = []
+    /// Live view of the open composer, registered by ComposeView so Claude reads
+    /// what is on screen (the composer keeps its edits in local state).
+    var composeSnapshot: (id: UUID, read: () -> ComposeDraft)?
     private let kScheduled = "mmail.scheduled"
     private let kSnoozed = "mmail.snoozed"
+    private let kPinned = "mmail.pinned"
+    private let kInviteReplies = "mmail.inviteReplies"
     private var pollTimer: Timer?
     private var pollCount = 0
     private var imapSessions: [String: IMAPSession] = [:]
@@ -207,6 +223,7 @@ final class AppModel: ObservableObject {
     private let kWeatherCity = "mmail.weatherCity"
 
     private var keyMonitor: Any?
+    private var clickMonitor: Any?
     private var toastWorkItem: DispatchWorkItem?
     private var pendingSendWork: DispatchWorkItem?
 
@@ -215,7 +232,7 @@ final class AppModel: ObservableObject {
         onboarding = true
         dark = d.object(forKey: kDark) as? Bool ?? false
         sidebarVisible = d.object(forKey: kSidebar) as? Bool ?? true
-        readingPane = d.object(forKey: kReadingPane) as? Bool ?? true
+        readingPane = d.object(forKey: kReadingPane) as? Bool ?? false   // Gmail default: no split
         vimNav = d.object(forKey: kVimNav) as? Bool ?? true
         confirmDiscard = d.object(forKey: kConfirmDiscard) as? Bool ?? false
         notificationsEnabled = d.object(forKey: kNotifications) as? Bool ?? true
@@ -267,6 +284,8 @@ final class AppModel: ObservableObject {
            let decoded = try? JSONDecoder().decode([ScheduledSend].self, from: data) { scheduled = decoded }
         if let data = d.data(forKey: kSnoozed),
            let decoded = try? JSONDecoder().decode([String: Date].self, from: data) { snoozedUntil = decoded }
+        pinnedIds = Set(d.stringArray(forKey: kPinned) ?? [])
+        inviteReplies = (d.dictionary(forKey: kInviteReplies) as? [String: String]) ?? [:]
         // Welcome shows on first launch and whenever no account is connected.
         onboarding = accounts.isEmpty
         purgeSeedData()
@@ -332,13 +351,30 @@ final class AppModel: ObservableObject {
         if searchIsActive { return visibleEmails }
         if labelFilter != nil { return visibleEmails }
         if folder != "inbox" { return visibleEmails }
+        let list: [Email]
         switch filter {
-        case .unread: return visibleEmails.filter { $0.unread }
-        case .people: return visibleEmails.filter { SampleData.senders[$0.from]?.org != .bot }
-        case .updates: return visibleEmails.filter { SampleData.senders[$0.from]?.org == .bot }
-        case .all: return visibleEmails
+        case .unread: list = visibleEmails.filter { $0.unread }
+        case .people: list = visibleEmails.filter { SampleData.senders[$0.from]?.org != .bot }
+        case .updates: list = visibleEmails.filter { SampleData.senders[$0.from]?.org == .bot }
+        case .all: list = visibleEmails
         }
+        // Pinned mail heads the inbox, then (in All) unread mail: one ordering, shared
+        // by the list's sections, J/K and the arrows. Stable within each section.
+        return list.enumerated()
+            .sorted { (section(of: $0.element).rawValue, $0.offset) < (section(of: $1.element).rawValue, $1.offset) }
+            .map(\.element)
     }
+
+    /// The section a row shows in, always from its current state (so a row's look,
+    /// its tile and its section never disagree).
+    func section(of e: Email) -> ListSection {
+        guard folder == "inbox", !searchIsActive, labelFilter == nil else { return .rest }
+        if pinnedIds.contains(e.id) { return .pinned }
+        if filter == .all && e.unread { return .unread }
+        return .rest
+    }
+
+
 
     var selectedEmail: Email? {
         filteredEmails.first(where: { $0.id == selectedId }) ?? filteredEmails.first
@@ -415,26 +451,46 @@ final class AppModel: ObservableObject {
 
     func select(_ id: String?) {
         selectedId = id
-        markSelectedReadSoon()
+        // Only a message actually shown gets marked read: selecting a row in the list
+        // (arrows, the next row after archiving) must not read it behind your back.
+        if readingPane || readerFullScreen { markSelectedReadSoon() }
         loadBodyIfNeeded()
     }
 
     /// A row tap: select, and when the reading pane is off, open the full reader.
     func activate(_ id: String) {
+        // A search result may come from the disk cache or the server, outside the loaded mail.
+        if !emails.contains(where: { $0.id == id }), let hit = serverSearchResults?.first(where: { $0.id == id }) {
+            emails.append(hit)
+        }
         select(id)
         if !readingPane { readerFullScreen = true }
     }
 
     // MARK: - Bulk selection
 
+    /// Last row toggled by hand: the start of a Shift-click range.
+    private var selectionAnchor: String?
+
     func toggleSelect(_ id: String) {
         if selectedIds.contains(id) { selectedIds.remove(id) } else { selectedIds.insert(id) }
+        selectionAnchor = id
     }
-    func clearSelection() { selectedIds.removeAll() }
+
+    /// Shift-click: select every visible row between the anchor and this one.
+    func selectRange(to id: String) {
+        let ids = filteredEmails.map(\.id)
+        guard let anchor = selectionAnchor, let a = ids.firstIndex(of: anchor), let b = ids.firstIndex(of: id) else {
+            toggleSelect(id); return
+        }
+        selectedIds.formUnion(ids[min(a, b)...max(a, b)])
+    }
+
+    func clearSelection() { selectedIds.removeAll(); selectionAnchor = nil }
     func selectAllVisible() { selectedIds = Set(filteredEmails.map { $0.id }) }
 
     func bulkArchive() { bulkTriage(localFolder: "archive", serverFolder: "archive", verb: "Archived") }
-    func bulkDone() { bulkTriage(localFolder: "done", serverFolder: "archive", verb: "Marked done") }
+    func bulkDone() { bulkArchive() }   // "Done" was merged into Archive
 
     func bulkDelete() {
         let ids = selectedIds
@@ -478,10 +534,11 @@ final class AppModel: ObservableObject {
     func closeFullReader() { readerFullScreen = false }
 
     func markSelectedReadSoon() {
-        guard let e = selectedEmail, e.unread else { return }
-        let id = e.id
+        // The exact selected row, never selectedEmail's fallback to the first message.
+        guard let id = selectedId, let e = emails.first(where: { $0.id == id }), e.unread else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-            guard let self, let i = self.emails.firstIndex(where: { $0.id == id }) else { return }
+            guard let self, self.selectedId == id, self.readingPane || self.readerFullScreen,
+                  let i = self.emails.firstIndex(where: { $0.id == id }) else { return }
             self.emails[i].unread = false
             // Mark seen on the server here (not in loadBodyIfNeeded), so prefetched
             // messages — whose body is already loaded — still get marked read on open.
@@ -525,14 +582,9 @@ final class AppModel: ObservableObject {
         }
         moveTo(target, dest: "archive", verb: "Archived")
     }
-    func markDone(_ id: String? = nil) {
-        let target = id ?? selectedId
-        if let target, let e = emails.first(where: { $0.id == target }), isRealAccount(e.account),
-           mailboxName(e.account, "archive") != nil {
-            realMove(e, to: "archive")
-        }
-        moveTo(target, dest: "done", verb: "Marked done")
-    }
+    /// "Done" was merged into Archive: on a real account both went to the server's
+    /// Archive mailbox, so a separate Done folder only hid mail.
+    func markDone(_ id: String? = nil) { archive(id) }
     func delete(_ id: String? = nil) {
         let target = id ?? selectedId
         if let target, let e = emails.first(where: { $0.id == target }), isRealAccount(e.account) {
@@ -598,11 +650,20 @@ final class AppModel: ObservableObject {
         return out
     }
 
-    func markUnread(_ id: String? = nil) {
+    func markUnread(_ id: String? = nil) { setRead(id, false) }
+    func markRead(_ id: String? = nil) { setRead(id, true) }
+
+    /// Read ↔ unread, whichever the message is not.
+    func toggleRead(_ id: String? = nil) {
+        guard let id = id ?? selectedId, let e = emails.first(where: { $0.id == id }) else { return }
+        setRead(id, e.unread)
+    }
+
+    private func setRead(_ id: String?, _ read: Bool) {
         guard let id = id ?? selectedId, let i = emails.firstIndex(where: { $0.id == id }) else { return }
-        emails[i].unread = true
-        applyRealFlag(emails[i], .seen, add: false)
-        showToast("Marked as unread")
+        emails[i].unread = !read
+        applyRealFlag(emails[i], .seen, add: read)
+        showToast(read ? "Marked as read" : "Marked as unread")
     }
 
     /// Handle an Archive/Trash/tap action from a new-mail notification.
@@ -886,6 +947,39 @@ final class AppModel: ObservableObject {
     }
 
     /// Write the invite's .ics to a temp file and hand it to Calendar.app.
+    /// Gmail-style RSVP: email the organizer an iCalendar REPLY straight away, no calendar app.
+    /// `partstat` is ACCEPTED, TENTATIVE or DECLINED.
+    func respondToInvite(_ email: Email, _ event: CalendarEvent, partstat: String) {
+        guard let cfg = config(for: email.account), let pw = cfg.smtpPassword else {
+            showToast("Add this account's password to reply to invites"); return
+        }
+        let name = accountsById[cfg.id]?.name
+        guard let reply = MIME.icsReply(to: event.raw, attendee: cfg.email, attendeeName: name, partstat: partstat) else {
+            showToast("This invite can't be answered by email"); return
+        }
+        let verb = ["ACCEPTED": "Accepted", "TENTATIVE": "Tentatively accepted", "DECLINED": "Declined"][partstat] ?? "Replied"
+        let who = name ?? cfg.email
+        let text = "\(who) \(verb.lowercased()) this invitation: \(event.summary)"
+        let message = MIME.buildInviteReply(from: cfg.email, fromName: name, to: reply.organizer,
+                                            subject: "\(verb): \(event.summary)", text: text, ics: reply.ics)
+        let previous = inviteReplies[email.id]
+        inviteReplies[email.id] = partstat
+        UserDefaults.standard.set(inviteReplies, forKey: kInviteReplies)
+        Task {
+            do {
+                try await SMTPService(config: cfg, password: pw)
+                    .send(from: cfg.email, fromName: name, recipients: [reply.organizer], message: message)
+                await MainActor.run { self.showToast("\(verb) · sent to \(reply.organizer)") }
+            } catch {
+                await MainActor.run {
+                    self.inviteReplies[email.id] = previous
+                    UserDefaults.standard.set(self.inviteReplies, forKey: self.kInviteReplies)
+                    self.showToast("Couldn't send your reply: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     func addToCalendar(_ event: CalendarEvent) {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("MMail-invite-\(UUID().uuidString).ics")
@@ -1192,7 +1286,7 @@ final class AppModel: ObservableObject {
         MailCache.save(emails.filter { $0.account == account && $0.folder == "sent" }, account: account, folder: "sent")
     }
 
-    private func quotedBody(_ e: Email) -> String {
+    func quotedBody(_ e: Email) -> String {
         let s = e.resolvedSender
         let header = "On \(e.time), \(s.name) wrote:"
         let quoted = e.body.split(separator: "\n", omittingEmptySubsequences: false)
@@ -1265,7 +1359,7 @@ final class AppModel: ObservableObject {
     }
 
     func setFolder(_ f: String) {
-        folder = f
+        folder = f == "home" ? "inbox" : f   // the Home dashboard was removed
         labelFilter = nil
         readerFullScreen = false
         clearSelection()
@@ -1310,16 +1404,13 @@ final class AppModel: ObservableObject {
             Command(id: "replyAll", group: "Mail", label: "Reply all", icon: "replyAll", shortcut: "A") { [weak self] in self?.replyAll() },
             Command(id: "forward", group: "Mail", label: "Forward", icon: "forward", shortcut: "F") { [weak self] in self?.forward() },
             Command(id: "archive", group: "Triage", label: "Archive", icon: "archive", shortcut: "E") { [weak self] in self?.archive() },
-            Command(id: "done", group: "Triage", label: "Mark as done", icon: "check", shortcut: "H") { [weak self] in self?.markDone() },
             Command(id: "snooze", group: "Triage", label: "Snooze", icon: "clock", shortcut: "Z") { [weak self] in self?.snooze() },
             Command(id: "delete", group: "Triage", label: "Delete", icon: "trash", shortcut: "#") { [weak self] in self?.delete() },
-            Command(id: "unread", group: "Triage", label: "Mark unread", icon: "mail", shortcut: "U") { [weak self] in self?.markUnread() },
+            Command(id: "unread", group: "Triage", label: "Mark read / unread", icon: "mail") { [weak self] in self?.toggleRead() },
             Command(id: "star", group: "Triage", label: "Star / unstar", icon: "star", shortcut: "S") { [weak self] in self?.toggleStar() },
             Command(id: "go-inbox", group: "Go to", label: "Go to Inbox", icon: "inbox", shortcut: "G I") { [weak self] in self?.setFolder("inbox") },
-            Command(id: "go-home", group: "Go to", label: "Go to Home", icon: "home", shortcut: "G H") { [weak self] in self?.setFolder("home") },
             Command(id: "go-starred", group: "Go to", label: "Go to Starred", icon: "star", shortcut: "G S") { [weak self] in self?.setFolder("starred") },
             Command(id: "go-snoozed", group: "Go to", label: "Go to Snoozed", icon: "clock", shortcut: "G Z") { [weak self] in self?.setFolder("snoozed") },
-            Command(id: "go-done", group: "Go to", label: "Go to Done", icon: "done", shortcut: "G E") { [weak self] in self?.setFolder("done") },
             Command(id: "go-sent", group: "Go to", label: "Go to Sent", icon: "send", shortcut: "G T") { [weak self] in self?.setFolder("sent") },
             Command(id: "go-drafts", group: "Go to", label: "Go to Drafts", icon: "draft", shortcut: "G D") { [weak self] in self?.setFolder("drafts") },
             Command(id: "search", group: "App", label: "Search mail", icon: "search", shortcut: "/") { [weak self] in self?.activateSearch() },
@@ -1463,7 +1554,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Folders that map to a real server mailbox / search and can be loaded.
-    private func isServerFolder(_ folderId: String) -> Bool {
+    func isServerFolder(_ folderId: String) -> Bool {
         !["home", "snoozed", "outbox"].contains(folderId)
     }
 
@@ -1799,7 +1890,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Long-lived IMAP connection per account (reused across operations).
-    private func session(for accountId: String) -> IMAPSession? {
+    func session(for accountId: String) -> IMAPSession? {
         if let s = imapSessions[accountId] { return s }
         guard let cfg = config(for: accountId), let pw = cfg.imapPassword else { return nil }
         let s = IMAPSession(config: cfg, password: pw)
@@ -1810,7 +1901,7 @@ final class AppModel: ObservableObject {
     /// Second long-lived connection per account, used exclusively for body
     /// reads. Lazily opened on first use; freed alongside the primary session
     /// when the account is signed out.
-    private func bodySession(for accountId: String) -> IMAPSession? {
+    func bodySession(for accountId: String) -> IMAPSession? {
         if let s = bodySessions[accountId] { return s }
         guard let cfg = config(for: accountId), let pw = cfg.imapPassword else { return nil }
         let s = IMAPSession(config: cfg, password: pw)
@@ -1824,7 +1915,7 @@ final class AppModel: ObservableObject {
     /// `Task.cancel()` mid-operation, but the next response or write attempt
     /// will surface the cancellation as a fail, and meanwhile the caller has
     /// already moved on.
-    private func withTimeout<T: Sendable>(_ seconds: TimeInterval,
+    func withTimeout<T: Sendable>(_ seconds: TimeInterval,
                                           _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask { try await operation() }
@@ -2011,7 +2102,7 @@ final class AppModel: ObservableObject {
         guard !q.isEmpty else { return }
         searchActive = true
         serverSearchResults = localSearch(q)   // instant offline results from cache
-        searchModalOpen = true
+        // Results show in the normal mail list (no pop-up), until the search is cleared.
         runServerSearch()                        // augment with server-side matches
     }
 
@@ -2125,7 +2216,6 @@ final class AppModel: ObservableObject {
         searchQuery = describeAdvanced(f)
         searching = true
         serverSearchResults = []
-        searchModalOpen = true
         let fld = folder == "home" ? "inbox" : folder
         Task {
             var results: [Email] = []
@@ -2219,13 +2309,20 @@ final class AppModel: ObservableObject {
         if persist { prefetchBodies(accountId, folderId) }
     }
 
+    private func recentlyEdited(_ id: String, _ kind: MailFlagKind) -> Bool {
+        guard let t = localFlagEdits["\(id)#\(kind)"] else { return false }
+        return Date().timeIntervalSince(t) < 60
+    }
+
     /// Apply an incremental refresh: update flags on the loaded window, append
     /// any new messages, persist, and prefetch the newest/starred bodies.
     private func mergeIncremental(_ sync: IMAPFolderSync, accountId: String, folderId: String) {
         for (uid, fs) in sync.flags {
             if let i = emails.firstIndex(where: { $0.account == accountId && $0.folder == folderId && $0.uid == uid }) {
-                emails[i].unread = !fs.seen
-                emails[i].starred = fs.flagged
+                // Keep a change made here in the last minute: the server may not have it yet.
+                let id = emails[i].id
+                if !recentlyEdited(id, .seen) { emails[i].unread = !fs.seen }
+                if !recentlyEdited(id, .flagged) { emails[i].starred = fs.flagged }
                 emails[i].labels = fs.keywords.map { $0.lowercased() }
             }
         }
@@ -2256,7 +2353,9 @@ final class AppModel: ObservableObject {
                 let blockedIDs = Set(blocked.map { $0.id })
                 mapped.removeAll { blockedIDs.contains($0.id) }
             }
-            emails.append(contentsOf: mapped)
+            // New arrivals go on top: the list keeps the array's order, so appending
+            // put fresh mail at the bottom of "All" (only "Unread" showed it).
+            emails.insert(contentsOf: mapped.sorted { ($0.uid ?? 0) > ($1.uid ?? 0) }, at: 0)
             registerLabels(from: mapped)
         }
         if folderId == "inbox" {
@@ -2466,7 +2565,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Per-message cache location for an attachment (original filename preserved).
-    private func attachmentCacheURL(_ email: Email, _ meta: AttachmentMeta) -> URL {
+    func attachmentCacheURL(_ email: Email, _ meta: AttachmentMeta) -> URL {
         let safeKey = "\(email.account)#\(email.uid ?? 0)".replacingOccurrences(of: "/", with: "_")
         return FileManager.default.temporaryDirectory
             .appendingPathComponent("MMailAttachments", isDirectory: true)
@@ -2547,6 +2646,7 @@ final class AppModel: ObservableObject {
 
     func applyRealFlag(_ email: Email, _ kind: MailFlagKind, add: Bool) {
         guard isRealAccount(email.account), let uid = email.uid, let session = session(for: email.account) else { return }
+        if kind != .deleted { localFlagEdits["\(email.id)#\(kind)"] = Date() }
         let box = mailboxName(email.account, email.folder) ?? "INBOX"
         Task {
             try? await session.store(mailbox: box, uid: uid, kind, add: add)
@@ -2635,6 +2735,23 @@ final class AppModel: ObservableObject {
         refreshCurrentRealFolder(silent: true)
     }
 
+    func isPinned(_ id: String) -> Bool { pinnedIds.contains(id) }
+
+    /// A row's main action (its left tile, or U): mark as read when unread, else pin / unpin.
+    /// U acts on the row under the pointer, or the current row when nothing is hovered.
+    func primaryAction(_ id: String? = nil) {
+        guard let id = id ?? hoveredId ?? selectedId, let e = emails.first(where: { $0.id == id })
+                ?? serverSearchResults?.first(where: { $0.id == id }) else { return }
+        if e.unread { markRead(id) } else { togglePin(id) }
+    }
+
+    func togglePin(_ id: String) {
+        let pin = !pinnedIds.contains(id)
+        if pin { pinnedIds.insert(id) } else { pinnedIds.remove(id) }
+        UserDefaults.standard.set(Array(pinnedIds), forKey: kPinned)
+        showToast(pin ? "Pinned to the top of the inbox" : "Unpinned")
+    }
+
     func persistSnoozed() {
         if let data = try? JSONEncoder().encode(snoozedUntil) { UserDefaults.standard.set(data, forKey: kSnoozed) }
     }
@@ -2660,7 +2777,7 @@ final class AppModel: ObservableObject {
     }
 
     /// Resolve a special mailbox name, discovering the folder list if needed.
-    private func resolveMailbox(_ accountId: String, kind: MailboxKind, session: IMAPSession) async -> String? {
+    func resolveMailbox(_ accountId: String, kind: MailboxKind, session: IMAPSession) async -> String? {
         let folderId: String = {
             switch kind {
             case .sent: return "sent"; case .drafts: return "drafts"; case .trash: return "trash"
@@ -2701,10 +2818,20 @@ final class AppModel: ObservableObject {
             guard let self else { return event }
             return self.handleKeyDown(event) ? nil : event
         }
+        // Clicking anywhere outside a text field leaves it (e.g. the search box),
+        // so the single-key shortcuts work again.
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self, self.isTyping, self.compose == nil, !self.anyOverlayOpen,
+                  let window = event.window, let content = window.contentView else { return event }
+            let hit = content.hitTest(content.convert(event.locationInWindow, from: nil))
+            if !(hit is NSTextField || hit is NSTextView) { window.makeFirstResponder(nil) }
+            return event
+        }
     }
 
     func removeKeyMonitor() {
         if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+        if let m = clickMonitor { NSEvent.removeMonitor(m); clickMonitor = nil }
     }
 
     private var isTyping: Bool {
@@ -2746,23 +2873,37 @@ final class AppModel: ObservableObject {
         if event.keyCode == 53 {
             if searchModalOpen { dismissSearch(); return true }
             if anyOverlayOpen { closeOverlays(); return true }
+            // Escape in a text field (the search box) leaves it and keeps the results.
+            if isTyping { NSApp.keyWindow?.makeFirstResponder(nil); return true }
             if selectionActive { clearSelection(); return true }
-            if searchActive { searchActive = false; searchQuery = ""; return true }
+            // From a result opened full-width, Escape goes back to the results first.
             if readerFullScreen { readerFullScreen = false; return true }
+            if searchActive { dismissSearch(); return true }
             return false
         }
 
-        // Below: single-key. Don't intercept when typing, an overlay owns focus,
-        // or the user has turned off keyboard (vim) navigation in Settings.
-        if isTyping || anyOverlayOpen || onboarding || !vimNav { return false }
+        if isTyping || anyOverlayOpen || onboarding { return false }
 
+        // Arrows move through the list (in a message opened full-width they scroll it instead).
+        if (event.keyCode == 125 || event.keyCode == 126) && !cmd && !readerFullScreen {
+            keyboardNav = true
+            navigate(event.keyCode == 125 ? 1 : -1)
+            return true
+        }
         // Return: open the selected message full-width when the reading pane is off.
-        if event.keyCode == 36 {
-            if !readingPane && !readerFullScreen && folder != "home" && selectedId != nil {
+        if event.keyCode == 36 || event.keyCode == 76 {
+            if !readingPane && !readerFullScreen && selectedId != nil {
                 readerFullScreen = true; return true
             }
             return false
         }
+        // Delete / Backspace: move the current message to the trash.
+        if (event.keyCode == 51 || event.keyCode == 117) && !cmd && selectedId != nil {
+            delete(); return true
+        }
+
+        // Below: single-key letters, unless keyboard (vim) navigation is off in Settings.
+        if !vimNav { return false }
 
         // ? help
         if chars == "?" { help = true; return true }
@@ -2771,7 +2912,7 @@ final class AppModel: ObservableObject {
 
         // g-prefix
         if pendingG {
-            let dest = ["h": "home", "i": "inbox", "z": "snoozed", "e": "done", "t": "sent", "s": "starred", "d": "drafts"][lower]
+            let dest = ["i": "inbox", "z": "snoozed", "e": "archive", "t": "sent", "s": "starred", "d": "drafts"][lower]
             if let d = dest { setFolder(d) }
             pendingG = false
             return true
@@ -2786,12 +2927,11 @@ final class AppModel: ObservableObject {
         let listActive = folder != "home"
 
         switch chars {
-        case "j": if listActive { navigate(1) }; return listActive
-        case "k": if listActive { navigate(-1) }; return listActive
+        case "j": if listActive { keyboardNav = true; navigate(1) }; return listActive
+        case "k": if listActive { keyboardNav = true; navigate(-1) }; return listActive
         case "e": if listActive { archive() }; return listActive
-        case "h": if listActive { markDone() }; return listActive
         case "#": if listActive { delete() }; return listActive
-        case "u": if listActive { markUnread() }; return listActive
+        case "u": if listActive { primaryAction() }; return listActive
         case "s": if listActive { toggleStar() }; return listActive
         case "z": if listActive { snooze() }; return listActive
         case "c": startCompose(); return true

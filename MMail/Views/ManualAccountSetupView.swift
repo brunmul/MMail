@@ -245,11 +245,13 @@ struct ManualAccountSetupView: View {
 
     private func connect() {
         let id = "real-\(UUID().uuidString)"
-        let user = imapUsername.trimmingCharacters(in: .whitespaces).isEmpty ? email : imapUsername
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let typedUser = imapUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        let user = typedUser.isEmpty ? address : typedUser
         let cfg = MailAccountConfig(
             id: id,
             displayName: displayName.trimmingCharacters(in: .whitespaces),
-            email: email.trimmingCharacters(in: .whitespaces),
+            email: address,
             imapHost: imapHost.trimmingCharacters(in: .whitespaces),
             imapPort: Int(imapPort) ?? 993,
             imapSecurity: imapSecurity,
@@ -257,10 +259,14 @@ struct ManualAccountSetupView: View {
             smtpHost: smtpHost.trimmingCharacters(in: .whitespaces),
             smtpPort: Int(smtpPort) ?? 587,
             smtpSecurity: smtpSecurity,
-            smtpUsername: sameCredentials ? user : (smtpUsername.isEmpty ? email : smtpUsername)
+            smtpUsername: sameCredentials ? user : (smtpUsername.isEmpty ? address : smtpUsername.trimmingCharacters(in: .whitespacesAndNewlines))
         )
-        let imapPw = imapPassword
-        let smtpPw = sameCredentials ? imapPassword : smtpPassword
+        // App passwords are shown in groups ("abcd efgh ijkl mnop"); providers expect them without spaces.
+        let cleanPassword = { (pw: String) in
+            provider.isCustom ? pw : pw.filter { !$0.isWhitespace }
+        }
+        let imapPw = cleanPassword(imapPassword)
+        let smtpPw = cleanPassword(sameCredentials ? imapPassword : smtpPassword)
         connecting = true
         error = nil
         Task {

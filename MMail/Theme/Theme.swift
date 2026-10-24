@@ -28,7 +28,7 @@ extension Color {
     }
 }
 
-// MARK: - Palette (light + dark token sets ported from tokens.css / styles.css)
+// MARK: - Palette (Arcos: warm paper and clay, light + dark token sets)
 
 struct Palette {
     // Brand
@@ -68,63 +68,82 @@ struct Palette {
     // For folder-active text in dark mode
     let activeFolderText: Color
 
+    // Arcos surfaces
+    let composeBg: Color      // pastel "Compose" button
+    let composeFg: Color
+    let searchBg: Color       // pill search field
+    let readRow: Color        // tint behind already-read rows
+    let star: Color
+
     let isDark: Bool
 
+    // Arcos light tokens: warm paper, one touch of clay (the look of Claude).
     static let light = Palette(
-        brandBlue: Color(hex: "2D3DEC"),
-        brandBlue600: Color(hex: "2536D1"),
-        brandBlue700: Color(hex: "1E2DB0"),
-        brandBlue100: Color(hex: "EEF1FF"),
-        brandBlue50: Color(hex: "F5F7FF"),
-        magenta: Color(hex: "E91E78"),
-        magenta600: Color(hex: "C9156A"),
-        magenta100: Color(hex: "FFF1F7"),
-        fg1: Color(hex: "0E0F1A"),
-        fg2: Color(hex: "3F4357"),
-        fg3: Color(hex: "6B7088"),
-        fg4: Color(hex: "9AA0B4"),
+        brandBlue: Color(hex: "C15F3C"),      // clay, deepened so it reads as text
+        brandBlue600: Color(hex: "A9502F"),
+        brandBlue700: Color(hex: "8E4226"),
+        brandBlue100: Color(hex: "F3E4DA"),   // clay wash: selection
+        brandBlue50: Color(hex: "F9F0EA"),
+        magenta: Color(hex: "C4453A"),
+        magenta600: Color(hex: "A83A30"),
+        magenta100: Color(hex: "F8E5E2"),
+        fg1: Color(hex: "262624"),
+        fg2: Color(hex: "5E5D59"),
+        fg3: Color(hex: "7D7C76"),
+        fg4: Color(hex: "A9A79F"),
         bg1: Color(hex: "FFFFFF"),
-        bg2: Color(hex: "F8F9FC"),
-        bg3: Color(hex: "F1F3F9"),
-        bg4: Color(hex: "E6E9F2"),
-        border: .rgba(14, 15, 26, 0.08),
-        borderStrong: .rgba(14, 15, 26, 0.14),
-        success: Color(hex: "1FB36B"),
-        success100: Color(hex: "E5F7EE"),
-        warning: Color(hex: "F4A52A"),
-        warning100: Color(hex: "FFF6E5"),
-        danger: Color(hex: "E5484D"),
-        danger100: Color(hex: "FCEBEC"),
-        activeFolderText: Color(hex: "2D3DEC"),
+        bg2: Color(hex: "EFEDE4"),            // surface: the paper of the bar
+        bg3: Color(hex: "EFEEE6"),
+        bg4: Color(hex: "E6E4DA"),
+        border: .rgba(0, 0, 0, 0.08),
+        borderStrong: .rgba(0, 0, 0, 0.18),
+        success: Color(hex: "5C7A47"),
+        success100: Color(hex: "E9EFE3"),
+        warning: Color(hex: "C08A2E"),
+        warning100: Color(hex: "F7EEDC"),
+        danger: Color(hex: "C4453A"),
+        danger100: Color(hex: "F8E5E2"),
+        activeFolderText: Color(hex: "262624"),
+        composeBg: Color(hex: "FFFFFF"),      // the white "current" pill
+        composeFg: Color(hex: "262624"),
+        searchBg: Color(hex: "FFFFFF"),
+        readRow: Color(hex: "FAF9F5"),
+        star: Color(hex: "D97757"),
         isDark: false
     )
 
+    // Arcos dark tokens.
     static let dark = Palette(
-        brandBlue: Color(hex: "2D3DEC"),
-        brandBlue600: Color(hex: "2536D1"),
-        brandBlue700: Color(hex: "1E2DB0"),
-        brandBlue100: Color(hex: "20254A"),
-        brandBlue50: Color(hex: "1B1E3A"),
-        magenta: Color(hex: "E91E78"),
-        magenta600: Color(hex: "C9156A"),
-        magenta100: .rgba(233, 30, 120, 0.16),
-        fg1: Color(hex: "F3F4F8"),
-        fg2: Color(hex: "BFC2CF"),
-        fg3: Color(hex: "8E92A4"),
-        fg4: Color(hex: "5F6377"),
-        bg1: Color(hex: "15161D"),
-        bg2: Color(hex: "0F1015"),
-        bg3: Color(hex: "1D1F28"),
-        bg4: Color(hex: "292B36"),
+        brandBlue: Color(hex: "E08A6A"),
+        brandBlue600: Color(hex: "D97757"),
+        brandBlue700: Color(hex: "C15F3C"),
+        brandBlue100: .rgba(217, 119, 87, 0.22),
+        brandBlue50: .rgba(217, 119, 87, 0.12),
+        magenta: Color(hex: "E5847A"),
+        magenta600: Color(hex: "D96C61"),
+        magenta100: .rgba(229, 132, 122, 0.16),
+        fg1: Color(hex: "E8E6E1"),
+        fg2: Color(hex: "B3B1AA"),
+        fg3: Color(hex: "8C8A84"),
+        fg4: Color(hex: "6B6965"),
+        bg1: Color(hex: "2A2928"),
+        bg2: Color(hex: "1A1918"),
+        bg3: Color(hex: "333230"),
+        bg4: Color(hex: "3D3C39"),
         border: .rgba(255, 255, 255, 0.08),
-        borderStrong: .rgba(255, 255, 255, 0.14),
-        success: Color(hex: "1FB36B"),
-        success100: .rgba(31, 179, 107, 0.16),
-        warning: Color(hex: "F4A52A"),
-        warning100: .rgba(244, 165, 42, 0.16),
-        danger: Color(hex: "E5484D"),
-        danger100: .rgba(229, 72, 77, 0.16),
-        activeFolderText: Color(hex: "C5CCFF"),
+        borderStrong: .rgba(255, 255, 255, 0.18),
+        success: Color(hex: "A0B295"),
+        success100: .rgba(160, 178, 149, 0.16),
+        warning: Color(hex: "D9B66E"),
+        warning100: .rgba(217, 182, 110, 0.16),
+        danger: Color(hex: "E5847A"),
+        danger100: .rgba(229, 132, 122, 0.16),
+        activeFolderText: Color(hex: "E8E6E1"),
+        composeBg: .rgba(255, 255, 255, 0.12),
+        composeFg: Color(hex: "E8E6E1"),
+        searchBg: Color(hex: "1F1E1D"),
+        readRow: Color(hex: "262524"),
+        star: Color(hex: "D97757"),
         isDark: true
     )
 }
@@ -148,4 +167,47 @@ enum Typo {
     static func h2() -> Font { .system(size: 36, weight: .bold) }
     static func h3() -> Font { .system(size: 30, weight: .bold) }
     static func mono(_ size: CGFloat) -> Font { .system(size: size, design: .monospaced) }
+    /// The serif (New York) used for the greeting and message subjects.
+    static func serif(_ size: CGFloat) -> Font { .system(size: size, weight: .regular, design: .serif) }
+}
+
+// MARK: - Arcos shapes
+
+enum Arcos {
+    static let clay = Color(hex: "D97757")
+    static let badge = Color(hex: "FF3B30")
+    /// Soft shadow under the white "current" pill.
+    static let currentShadow = Color.black.opacity(0.10)
+
+    static func hoverFill(_ p: Palette) -> Color { p.isDark ? .white.opacity(0.06) : .black.opacity(0.06) }
+    static func chipFill(_ p: Palette) -> Color { p.isDark ? .white.opacity(0.07) : .black.opacity(0.07) }
+    static func current(_ p: Palette) -> Color { p.isDark ? .white.opacity(0.18) : .white.opacity(0.78) }
+    static func outline(_ p: Palette) -> Color { p.isDark ? .white.opacity(0.18) : .black.opacity(0.18) }
+    static func wave(_ p: Palette) -> Color { p.isDark ? .white.opacity(0.16) : .black.opacity(0.16) }
+}
+
+/// Arcos never draws straight dividers: a thin wavy line separates groups.
+struct WaveSeparator: View {
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        Canvas { ctx, size in
+            var path = Path()
+            let mid = size.height / 2
+            let step: CGFloat = 6
+            path.move(to: CGPoint(x: 1, y: mid))
+            var x: CGFloat = 1
+            var up = true
+            while x < size.width - 1 {
+                let next = min(x + step, size.width - 1)
+                path.addQuadCurve(to: CGPoint(x: next, y: mid),
+                                  control: CGPoint(x: (x + next) / 2, y: up ? 0 : size.height))
+                up.toggle()
+                x = next
+            }
+            ctx.stroke(path, with: .color(Arcos.wave(p)), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+        }
+        .frame(height: 5)
+        .padding(.vertical, 6)
+    }
 }
