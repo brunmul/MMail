@@ -16,6 +16,7 @@ using MMail.Core.Storage;
 using Windows.Graphics;
 using Windows.Storage.Pickers;
 using Windows.System;
+using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 
 namespace MMail.App;
 

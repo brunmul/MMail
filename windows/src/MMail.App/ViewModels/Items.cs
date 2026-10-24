@@ -101,7 +101,7 @@ public sealed class SidebarItem(string id, string title, string glyph) : Bindabl
 
     public string CountText => Count > 0 ? Count.ToString() : "";
     public Windows.UI.Text.FontWeight Weight => IsCurrent || Count > 0 ? FontWeights.SemiBold : FontWeights.Normal;
-    public Brush Background => Palette.Brush(IsCurrent ? Palette.Current.Current : Microsoft.UI.Colors.Transparent);
+    public Brush Background => Palette.Brush(IsCurrent ? Palette.Current.CurrentPill : Microsoft.UI.Colors.Transparent);
     public Brush Foreground => Palette.Brush(IsCurrent ? Palette.Current.Fg1 : Palette.Current.Fg2);
     public Brush IconForeground => ColorHex is { } hex ? Palette.Brush(Palette.Hex(hex)) : Foreground;
 }
