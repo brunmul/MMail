@@ -9,11 +9,15 @@ sections in All, and a local MCP server so Claude can drive the app with the sam
 
 ## Install
 
-Download `MMail-Windows-x64.zip` from the
+Download `MMail-Setup.exe` from the
 [`facteur-windows-latest` prerelease](../../releases/tag/facteur-windows-latest)
-(or from the artifacts of the **Windows** workflow), unzip it anywhere and run
-`MMail.exe`. Nothing else to install: the app is self-contained. Windows 10 1809
-or later; the reader uses the WebView2 runtime that ships with Windows 11 and Edge.
+and run it. It installs MMail for your user only (no administrator prompt) in
+`%LOCALAPPDATA%\Programs\MMail`, with a Start menu entry, an optional desktop
+icon and an uninstaller; running a newer setup updates in place. The installer is
+not signed, so SmartScreen may say "Windows protected your PC": click *More info*,
+then *Run anyway*. A portable `MMail-Windows-x64.zip` is published next to it.
+Windows 10 1809 or later; the reader uses the WebView2 runtime that ships with
+Windows 11 and Edge.
 
 The first launch asks for an account. For Gmail, create an
 [app password](https://myaccount.google.com/apppasswords) (two-step verification
@@ -61,6 +65,7 @@ windows/
   src/MMail.Core/     mail (MailKit), SQLite cache, list logic, MCP server and tools — no UI, runs anywhere
   src/MMail.App/      the WinUI 3 app (MMail.exe)
   src/MMail.Mcp/      mmail-mcp.exe, the stdio ↔ pipe bridge Claude launches
+  installer/          Inno Setup script for MMail-Setup.exe
   tests/              core tests (fake mail server), run on Linux and Windows
 ```
 
@@ -73,6 +78,7 @@ the state and every action, used by both the window and the MCP tools.
 dotnet test tests/MMail.Core.Tests
 dotnet publish src/MMail.App/MMail.App.csproj -c Release -r win-x64 -p:Platform=x64 -o out/MMail
 dotnet publish src/MMail.Mcp/MMail.Mcp.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o out/MMail
+iscc installer/MMail.iss    # Inno Setup 6: out/MMail-Setup.exe
 ```
 
 The core and its tests build on any OS; the app needs Windows (or the **Windows**
