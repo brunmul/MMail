@@ -20,12 +20,25 @@ public partial class App : Application
         // A crash at startup would otherwise close MMail without a word: say what happened.
         AppDomain.CurrentDomain.UnhandledException += (_, e) => ReportCrash(e.ExceptionObject as Exception);
         UnhandledException += (_, e) => ReportCrash(e.Exception);
-        InitializeComponent();
-        Palette.Install(Resources);
+        StartupLog.Write("App");
+        try
+        {
+            InitializeComponent();
+            DebugSettings.XamlResourceReferenceFailed += (_, e) => StartupLog.Write($"resource: {e.Message}");
+            DebugSettings.BindingFailed += (_, e) => StartupLog.Write($"binding: {e.Message}");
+            Palette.Install(Resources);
+        }
+        catch (Exception ex)
+        {
+            ReportCrash(ex);
+            throw;
+        }
+        StartupLog.Write("App ready");
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        StartupLog.Write("OnLaunched");
         try { Launch(); }
         catch (Exception ex)
         {
@@ -51,13 +64,16 @@ public partial class App : Application
         var credentials = new WindowsCredentialStore();
         var model = new MailController(store, new MailKitService(credentials), credentials);
 
+        StartupLog.Write("store open");
         _window = new MainWindow(model, store);
+        StartupLog.Write("window created");
         _agent = new AgentPipeServer(AgentTools.CreateServer(model), new WinUiDispatcher(_window.DispatcherQueue), AppPaths.AgentPipeName);
         _agent.Start();
 
         var background = Environment.GetCommandLineArgs().Contains("--background");
         _window.Activate();
         if (background) _window.Minimize();
+        StartupLog.Write("window activated");
     }
 
     private static int _reported;
@@ -68,6 +84,7 @@ public partial class App : Application
     {
         if (Interlocked.Exchange(ref _reported, 1) == 1) return;
         var text = ex?.ToString() ?? "Unknown error";
+        StartupLog.Write($"crash: {text}");
         var log = Path.Combine(AppPaths.Home, "crash.log");
         try
         {
