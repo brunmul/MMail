@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MMail.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.18.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+  </ItemGroup>
+  <!-- Google sign-in client, from the GoogleClientId / GoogleClientSecret build properties
+       (the CI sets them from the repository secrets). See Mail/GoogleOAuth.cs. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="GoogleClientId" Value="$(GoogleClientId)" />
+    <AssemblyMetadata Include="GoogleClientSecret" Value="$(GoogleClientSecret)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="MMail.Core.Tests" />
+  </ItemGroup>
+</Project>

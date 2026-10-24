@@ -200,8 +200,14 @@ struct ComposeView: View {
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { handleDrop($0) }
         .shadow(color: .black.opacity(0.3), radius: 40, y: 16)
         .background(hiddenShortcuts)
-        .onAppear { installEscMonitor() }
-        .onDisappear { removeEscMonitor() }
+        .onAppear {
+            installEscMonitor()
+            model.composeSnapshot = (draft.id, { currentDraft() })
+        }
+        .onDisappear {
+            removeEscMonitor()
+            if model.composeSnapshot?.id == draft.id { model.composeSnapshot = nil }
+        }
         .foregroundStyle(p.fg1)
         .sheet(isPresented: $editorOpen) { templateEditorSheet }
         .sheet(isPresented: $customOpen) { customScheduleSheet }

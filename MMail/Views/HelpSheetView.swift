@@ -9,20 +9,19 @@ struct HelpSheetView: View {
 
     private let sections: [Section] = [
         Section(title: "Navigation", items: [
-            Shortcut(label: "Next message", keys: ["J"]),
-            Shortcut(label: "Previous message", keys: ["K"]),
+            Shortcut(label: "Next message", keys: ["↓"]),
+            Shortcut(label: "Previous message", keys: ["↑"]),
             Shortcut(label: "Open / focus reader", keys: ["↵"]),
             Shortcut(label: "Back to list", keys: ["esc"]),
             Shortcut(label: "Go to inbox", keys: ["G", "I"]),
             Shortcut(label: "Go to snoozed", keys: ["G", "Z"]),
-            Shortcut(label: "Go to done", keys: ["G", "E"]),
+            Shortcut(label: "Go to archive", keys: ["G", "E"]),
             Shortcut(label: "Go to sent", keys: ["G", "T"])
         ]),
         Section(title: "Triage", items: [
-            Shortcut(label: "Mark as done", keys: ["H"]),
             Shortcut(label: "Archive", keys: ["E"]),
-            Shortcut(label: "Delete", keys: ["#"]),
-            Shortcut(label: "Mark unread", keys: ["U"]),
+            Shortcut(label: "Delete", keys: ["⌫"]),
+            Shortcut(label: "Main action: read, pin / unpin", keys: ["U"]),
             Shortcut(label: "Star", keys: ["S"]),
             Shortcut(label: "Snooze", keys: ["Z"])
         ]),

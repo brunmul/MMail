@@ -1,0 +1,39 @@
+name: Build
+on:
+  push:
+  pull_request:
+permissions:
+  contents: write
+# Pushes to the same branch run one at a time and a newer push cancels the older
+# run, so two "Publish prerelease" steps never race on the same release.
+concurrency:
+  group: build-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build
+        run: xcodebuild -project MMail.xcodeproj -scheme MMail -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+      # Ready-to-install app for the facteur branch: universal, ad-hoc signed, published as a prerelease.
+      - name: Package app
+        if: github.event_name == 'push' && github.ref == 'refs/heads/facteur'
+        run: |
+          xcodebuild -project MMail.xcodeproj -scheme MMail -configuration Release -derivedDataPath build \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+          APP=build/Build/Products/Release/MMail.app
+          codesign --force --deep --sign - "$APP"
+          ditto -c -k --keepParent "$APP" MMail.zip
+      - name: Publish prerelease
+        if: github.event_name == 'push' && github.ref == 'refs/heads/facteur'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete facteur-latest --yes --cleanup-tag || true
+          gh release create facteur-latest MMail.zip --prerelease --target "$GITHUB_SHA" \
+            --title "MMail (facteur) – dernière version" --notes "Build automatique de la branche facteur ($GITHUB_SHA)."

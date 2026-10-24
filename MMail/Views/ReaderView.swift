@@ -15,7 +15,7 @@ struct ReaderView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(p.bg2)
+        .background(p.bg1)
     }
 
     private var emptyState: some View {
@@ -45,7 +45,7 @@ private struct ReaderContent: View {
     @State private var newLabelOpen = false
     @State private var newLabelName = ""
     @State private var htmlHeight: CGFloat = 0
-    @State private var loadImages = false
+    @State private var loadImages = true   // images show by default, like Gmail
     @State private var snoozePickerOpen = false
     @State private var snoozeDate = Date()
 
@@ -68,8 +68,8 @@ private struct ReaderContent: View {
                         if !expanded && hiddenInStack > 0 { stackMoreButton }
                     }
                 }
-                .frame(maxWidth: 820, alignment: .leading)
-                .padding(.horizontal, 40).padding(.top, 28).padding(.bottom, 96)
+                .frame(maxWidth: 1100, alignment: .leading)
+                .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 64)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -115,9 +115,10 @@ private struct ReaderContent: View {
                     HStack(spacing: 4) {
                         Icon(name: "chevronLeft", size: 13)
                         Text("Back").font(.system(size: 12.5, weight: .medium))
+                        Kbd("esc")
                     }
                     .foregroundStyle(p.fg2).padding(.horizontal, 8).frame(height: 30)
-                    .background(p.bg3).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Back to list (esc)")
@@ -133,7 +134,7 @@ private struct ReaderContent: View {
                 }
                 .buttonStyle(.plain)
             } else {
-                PrimaryToolbarButton(icon: "check", label: "Done", kbd: "H") { model.markDone() }
+                PrimaryToolbarButton(icon: "archive", label: "Archive", kbd: "E") { model.archive() }
                 PrimaryToolbarButton(icon: "replyAll", label: "Reply all", kbd: "A") { model.replyAll() }
             }
             Button { model.toggleStar(email.id) } label: {
@@ -231,13 +232,16 @@ private struct ReaderContent: View {
     private var primaryCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(email.subject)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 22))
                 .foregroundStyle(p.fg1)
+                .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.bottom, 18)
+                .padding(.leading, Self.bodyIndent)
+                .padding(.bottom, 20)
 
-            metaRow.padding(.bottom, 22)
-            Divider().overlay(p.border)
+            metaRow.padding(.bottom, 8)
+
+            VStack(alignment: .leading, spacing: 0) {
 
             if email.unsubscribe != nil {
                 HStack(spacing: 8) {
@@ -248,11 +252,7 @@ private struct ReaderContent: View {
                         Text("Unsubscribe").font(.system(size: 12, weight: .semibold)).foregroundStyle(p.brandBlue)
                     }.buttonStyle(.plain)
                 }
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(p.bg2)
-                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(p.border, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .padding(.top, 16)
+                .padding(.top, 12)
             }
 
             if let ev = email.calendarEvent {
@@ -292,7 +292,7 @@ private struct ReaderContent: View {
                 if !showImages {
                     let trackers = Privacy.trackerCount(in: html)
                     HStack(spacing: 8) {
-                        Icon(name: "shield", size: 12).foregroundStyle(p.brandBlue)
+                        Icon(name: "shield", size: 12).foregroundStyle(p.fg3)
                         Text(trackers > 0
                              ? "Blocked \(trackers) tracker\(trackers == 1 ? "" : "s")"
                              : "Remote images are blocked for privacy.")
@@ -307,15 +307,11 @@ private struct ReaderContent: View {
                             }.buttonStyle(.plain).help("Always load images from \(addr)")
                         }
                     }
-                    .padding(.horizontal, 12).padding(.vertical, 8)
-                    .background(p.bg2)
-                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(p.border, lineWidth: 1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .padding(.top, 16)
+                    .padding(.top, 12)
                 }
                 HTMLMessageView(html: html, blockRemote: !showImages, height: $htmlHeight)
                     .frame(height: max(htmlHeight, 80))
-                    .padding(.top, 16)
+                    .padding(.top, 20)
             } else {
                 Text(email.body)
                     .font(.system(size: 15))
@@ -323,23 +319,24 @@ private struct ReaderContent: View {
                     .lineSpacing(5)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 24)
+                    .padding(.top, 20)
             }
 
             if !email.attachments.isEmpty {
                 attachmentsSection
             }
 
-            replyStrip.padding(.top, 24)
+            replyStrip.padding(.top, 32)
+            }
+            .padding(.leading, Self.bodyIndent)
         }
-        .padding(EdgeInsets(top: 32, leading: 40, bottom: 28, trailing: 40))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(p.bg1)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(p.border, lineWidth: 1))
-        .shadow(color: .black.opacity(p.isDark ? 0.4 : 0.08), radius: 12, y: 6)
         .zIndex(10)
     }
+
+    /// Gmail-style: everything below the sender line starts under the name, past the avatar.
+    static let bodyIndent: CGFloat = 52
+
 
     private func inviteCard(_ ev: CalendarEvent) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -354,14 +351,19 @@ private struct ReaderContent: View {
             if let loc = ev.location {
                 HStack(spacing: 6) { Icon(name: "home", size: 11).foregroundStyle(p.fg3); Text(loc).font(.system(size: 12.5)).foregroundStyle(p.fg3) }
             }
-            Button { model.addToCalendar(ev) } label: {
-                HStack(spacing: 6) {
-                    Icon(name: "check", size: 12); Text("Add to Calendar").font(.system(size: 12.5, weight: .semibold))
+            // Gmail-style RSVP: answering emails the organizer directly.
+            HStack(spacing: 8) {
+                Text("Going?").font(.system(size: 12.5)).foregroundStyle(p.fg2)
+                rsvpButton(ev, "ACCEPTED", "Yes")
+                rsvpButton(ev, "TENTATIVE", "Maybe")
+                rsvpButton(ev, "DECLINED", "No")
+                Spacer(minLength: 8)
+                Button { model.addToCalendar(ev) } label: {
+                    Text("Open in Calendar").font(.system(size: 12)).foregroundStyle(p.fg3)
                 }
-                .foregroundStyle(.white).padding(.horizontal, 12).frame(height: 28)
-                .background(p.brandBlue).clipShape(Capsule())
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain).padding(.top, 2)
+            .padding(.top, 2)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -369,6 +371,24 @@ private struct ReaderContent: View {
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(p.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.top, 16)
+    }
+
+    private func rsvpButton(_ ev: CalendarEvent, _ partstat: String, _ label: String) -> some View {
+        let chosen = model.inviteReplies[email.id] == partstat
+        return Button { model.respondToInvite(email, ev, partstat: partstat) } label: {
+            HStack(spacing: 5) {
+                if chosen { Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold)) }
+                Text(label).font(.system(size: 12.5, weight: .medium))
+            }
+            .foregroundStyle(p.fg1)
+            .padding(.horizontal, 12).frame(height: 28)
+            .background(chosen ? Arcos.current(p) : Color.clear, in: Capsule())
+            .overlay(Capsule().strokeBorder(chosen ? Color.clear : p.borderStrong, lineWidth: 1))
+            .shadow(color: chosen ? Arcos.currentShadow : .clear, radius: 1.5, y: 0.5)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help(partstat == "ACCEPTED" ? "Accept and tell the organizer" : partstat == "DECLINED" ? "Decline and tell the organizer" : "Reply maybe")
     }
 
     private func eventWhen(_ start: Date, _ end: Date?) -> String {
@@ -383,23 +403,30 @@ private struct ReaderContent: View {
 
     private var metaRow: some View {
         HStack(alignment: .top, spacing: 12) {
-            Avatar(sender: sender, size: 36)
+            Avatar(sender: sender, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Button { contactOpen.toggle() } label: {
                     HStack(spacing: 5) {
                         Text(sender?.name ?? (email.to?.first ?? "You"))
                             .font(.system(size: 14, weight: .semibold)).foregroundStyle(p.fg1)
-                        Icon(name: "chevronDown", size: 12).foregroundStyle(p.fg3)
-                            .rotationEffect(.degrees(contactOpen ? 180 : 0))
+                        if let addr = sender?.email, !addr.isEmpty {
+                            Text("<\(addr)>").font(.system(size: 12)).foregroundStyle(p.fg3).lineLimit(1)
+                        }
                     }
-                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .padding(.vertical, 2)
                     .background(contactOpen ? p.bg3 : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $contactOpen, arrowEdge: .bottom) { contactCard }
 
-                Text(toLine).font(.system(size: 12)).foregroundStyle(p.fg3).lineLimit(1)
+                HStack(spacing: 3) {
+                    Text(toLine).font(.system(size: 12)).foregroundStyle(p.fg3).lineLimit(1)
+                    Icon(name: "chevronDown", size: 9).foregroundStyle(p.fg3)
+                        .rotationEffect(.degrees(contactOpen ? 180 : 0))
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { contactOpen.toggle() }
             }
             Spacer(minLength: 12)
             Text(email.day == "today" ? "Today, \(email.time)" : email.time)
@@ -537,18 +564,22 @@ private struct ReaderContent: View {
     }
 
     private var replyStrip: some View {
-        Button { model.reply() } label: {
-            HStack(spacing: 12) {
-                Icon(name: "reply", size: 16).foregroundStyle(p.fg3)
-                Text("Reply to \(sender?.firstName ?? "sender")…").font(.system(size: 13)).foregroundStyle(p.fg3)
-                Spacer()
-                Kbd("R")
+        HStack(spacing: 10) {
+            outlinedAction("reply", "Reply") { model.reply() }
+            outlinedAction("forward", "Forward") { model.forward() }
+        }
+    }
+
+    private func outlinedAction(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Icon(name: icon, size: 14)
+                Text(label).font(.system(size: 13, weight: .medium))
             }
-            .padding(14)
-            .frame(maxWidth: .infinity)
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(p.borderStrong, style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-            .contentShape(Rectangle())
+            .foregroundStyle(p.fg2)
+            .padding(.horizontal, 16).frame(height: 34)
+            .overlay(Capsule().strokeBorder(p.borderStrong, lineWidth: 1))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -601,7 +632,7 @@ private struct ReaderContent: View {
         let s = isYou ? nil : SampleData.senders[t.from]
         return HStack(spacing: 12) {
             if isYou {
-                GradientTile(colors: [Color(hex: "2D3DEC"), Color(hex: "7A5AE0")], text: "Y", size: 28, cornerRadius: 14, fontSize: 11)
+                GradientTile(colors: [Color(hex: "D97757"), Color(hex: "C15F3C")], text: "Y", size: 28, cornerRadius: 14, fontSize: 11)
             } else {
                 Avatar(sender: s, size: 28)
             }
@@ -618,7 +649,6 @@ private struct ReaderContent: View {
         .background(p.bg1)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(p.border, lineWidth: 1))
-        .shadow(color: .black.opacity(p.isDark ? 0.3 : 0.06), radius: collapsed ? 10 : 6, y: 4)
         .contentShape(Rectangle())
         .onTapGesture {
             if collapsed {
@@ -674,11 +704,11 @@ private struct PrimaryToolbarButton: View {
             HStack(spacing: 6) {
                 Icon(name: icon, size: 15)
                 Text(label).font(.system(size: 12.5, weight: .semibold))
-                Kbd(kbd, onAccent: hover)
+                Kbd(kbd)
             }
-            .foregroundStyle(hover ? Color.white : p.fg1)
-            .padding(.horizontal, 12).frame(height: 30)
-            .background(hover ? p.brandBlue : p.bg3)
+            .foregroundStyle(p.fg2)
+            .padding(.horizontal, 10).frame(height: 30)
+            .background(hover ? p.fg1.opacity(0.06) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(.plain)

@@ -21,6 +21,8 @@ struct RootView: View {
             }
         }
         .toolbar { toolbarContent }
+        .toolbarBackground(p.bg2, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
         .onAppear { model.installKeyMonitor(); model.startPolling(); model.bootstrapRealAccounts() }
         .onChange(of: model.searchFocusRequested) { _, req in
             if req {
@@ -42,23 +44,38 @@ struct RootView: View {
 
     private var content: some View {
         HStack(spacing: 0) {
-            AccountRailView()
             if model.sidebarVisible {
                 SidebarView()
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
-            if model.folder == "home" {
-                HomeView()
-            } else if model.folder == "outbox" {
-                OutboxView()
-            } else if model.readingPane {
+            // Arcos: the mail sits like a window set into the warm paper of the bar.
+            mainPanel
+                .background(p.bg1)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Arcos.outline(p).opacity(0.6), lineWidth: 1))
+                .padding(.trailing, 8)
+                .padding(.bottom, 8)
+                .padding(.top, 2)
+                .padding(.leading, model.sidebarVisible ? 0 : 8)
+        }
+    }
+
+    @ViewBuilder
+    private var mainPanel: some View {
+        if model.folder == "home" {
+            HomeView()
+        } else if model.folder == "outbox" {
+            OutboxView()
+        } else if model.readingPane {
+            HStack(spacing: 0) {
                 EmailListView()
                 ReaderView()
-            } else if model.readerFullScreen {
-                ReaderView()
-            } else {
-                EmailListView()
             }
+        } else if model.readerFullScreen {
+            ReaderView()
+        } else {
+            EmailListView()
         }
     }
 
@@ -74,6 +91,7 @@ struct RootView: View {
 
         if let draft = model.compose {
             ComposeView(draft: draft)
+                .id(draft.id)   // a new draft from Claude rebuilds the composer
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .padding(24)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -125,30 +143,30 @@ struct RootView: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: 8) {
-            Icon(name: "search", size: 13)
-                .foregroundStyle(searchFocused ? p.fg1 : p.fg3)
-            TextField("Search mail — sender, subject, body…", text: $model.searchQuery)
+        HStack(spacing: 10) {
+            Icon(name: "search", size: 15)
+                .foregroundStyle(searchFocused ? p.fg1 : p.fg2)
+            TextField("Search mail", text: $model.searchQuery)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12.5))
+                .font(.system(size: 14))
                 .focused($searchFocused)
                 .foregroundStyle(p.fg1)
                 .onSubmit { model.submitSearch() }
                 .onChange(of: model.searchQuery) { _, q in
                     if q.isEmpty { model.serverSearchResults = nil; model.searching = false }
                 }
-            if !model.searchActive {
-                Kbd("/")
-            }
             Button { model.openAdvancedSearch() } label: {
-                Icon(name: "sliders", size: 13).foregroundStyle(model.serverSearchResults != nil ? p.brandBlue : p.fg3)
+                Icon(name: "sliders", size: 15).foregroundStyle(model.serverSearchResults != nil ? p.brandBlue : p.fg2)
             }
             .buttonStyle(.plain)
-            .help("Advanced search")
+            .help("Show search options")
         }
         .padding(.horizontal, 12)
-        .frame(width: 420, height: 26)
-        .contentShape(Rectangle())
+        .frame(width: 520, height: 28)
+        .background(p.searchBg, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .stroke(searchFocused ? Arcos.clay.opacity(0.6) : p.border, lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         .onTapGesture {
             model.searchActive = true
             searchFocused = true
