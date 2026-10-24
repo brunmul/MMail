@@ -26,7 +26,6 @@ public partial class App : Application
             InitializeComponent();
             DebugSettings.XamlResourceReferenceFailed += (_, e) => StartupLog.Write($"resource: {e.Message}");
             DebugSettings.BindingFailed += (_, e) => StartupLog.Write($"binding: {e.Message}");
-            Palette.Install(Resources);
         }
         catch (Exception ex)
         {
@@ -49,6 +48,9 @@ public partial class App : Application
 
     private void Launch()
     {
+        // Application.Resources can't be touched in the constructor (E_UNEXPECTED): add the
+        // Arcos brushes here, before the window that uses them.
+        Palette.Install(Resources);
         // One MMail per user: the second launch (e.g. from mmail-mcp) just quits.
         _singleInstance = new Mutex(true, $"MMail-{Environment.UserName}", out var first);
         if (!first)
